@@ -1,0 +1,274 @@
+:root {
+  /* Default Theme: Royal Violet & Neon Sunset Glow (Cực kỳ sang trọng & thẩm mỹ) */
+  --brand-primary: #7c3aed;
+  --brand-dark: #5b21b6;
+  --brand-accent: #9333ea;
+  --brand-light: #f5f3ff;
+  --brand-soft: #ede9fe;
+  --brand-border: #ddd6fe;
+  --brand-gradient: linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #ec4899 100%);
+  --brand-gradient-subtle: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+  --brand-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+
+  /* Fallback aliases */
+  --pink-momo: var(--brand-dark);
+  --pink-primary: var(--brand-primary);
+  --pink-accent: var(--brand-accent);
+  --pink-light: var(--brand-light);
+  --pink-soft: var(--brand-soft);
+  --pink-border: var(--brand-border);
+  --pink-gradient: var(--brand-gradient);
+  --pink-gradient-subtle: var(--brand-gradient-subtle);
+  --shadow-pink: var(--brand-shadow);
+  
+  --gray-900: #0f172a;
+  --gray-800: #1e293b;
+  --gray-700: #334155;
+  --gray-600: #475569;
+  --gray-500: #64748b;
+  --gray-400: #94a3b8;
+  --gray-300: #cbd5e1;
+  --gray-200: #e2e8f0;
+  --gray-100: #f1f5f9;
+  --gray-50: #f8fafc;
+
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --shadow-soju: 0 10px 30px -5px rgba(124, 58, 237, 0.08);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+}
+
+/* Theme 1: Cyber Violet (Tím Ánh Sao - Đề xuất) */
+[data-theme="violet"] {
+  --brand-primary: #7c3aed;
+  --brand-dark: #5b21b6;
+  --brand-accent: #9333ea;
+  --brand-light: #f5f3ff;
+  --brand-soft: #ede9fe;
+  --brand-border: #ddd6fe;
+  --brand-gradient: linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #ec4899 100%);
+  --brand-gradient-subtle: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+  --brand-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --border-color: #e2e8f0;
+}
+
+/* Theme 2: Ocean Blue & Cyan (Xanh Đại Dương Công Nghệ) */
+[data-theme="ocean"] {
+  --brand-primary: #0284c7;
+  --brand-dark: #0369a1;
+  --brand-accent: #0ea5e9;
+  --brand-light: #f0f9ff;
+  --brand-soft: #e0f2fe;
+  --brand-border: #bae6fd;
+  --brand-gradient: linear-gradient(135deg, #0284c7 0%, #06b6d4 50%, #3b82f6 100%);
+  --brand-gradient-subtle: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+  --brand-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --border-color: #e2e8f0;
+}
+
+/* Theme 3: Sunset Coral & Amber (Hoàng Hôn San Hô) */
+[data-theme="sunset"] {
+  --brand-primary: #ea580c;
+  --brand-dark: #c2410c;
+  --brand-accent: #f97316;
+  --brand-light: #fff7ed;
+  --brand-soft: #ffedd5;
+  --brand-border: #fed7aa;
+  --brand-gradient: linear-gradient(135deg, #ea580c 0%, #f43f5e 50%, #e11d48 100%);
+  --brand-gradient-subtle: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+  --brand-shadow: 0 4px 16px rgba(234, 88, 12, 0.35);
+  --bg-main: #ffffff;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --border-color: #e2e8f0;
+}
+
+/* Theme 4: Midnight Cinema Dark Mode (Rạp Chiếu Bóng Đêm) */
+[data-theme="midnight"] {
+  --brand-primary: #8b5cf6;
+  --brand-dark: #7c3aed;
+  --brand-accent: #a855f7;
+  --brand-light: #1e1b4b;
+  --brand-soft: #2e1065;
+  --brand-border: #3b0764;
+  --brand-gradient: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  --brand-gradient-subtle: linear-gradient(180deg, #0f172a 0%, #090d16 100%);
+  --brand-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  --bg-main: #090d16;
+  --bg-card: #0f172a;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #1e293b;
+  --gray-50: #0f172a;
+  --gray-100: #1e293b;
+  --gray-200: #334155;
+  --gray-300: #475569;
+  --gray-800: #f1f5f9;
+  --gray-900: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 15px;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-main);
+  background-color: var(--bg-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  outline: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brand-border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-primary);
+}
+
+/* Age rating badge classes */
+.badge-rate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.badge-c18 {
+  background-color: #e11d48;
+}
+
+.badge-c16 {
+  background-color: #ea580c;
+}
+
+.badge-c13 {
+  background-color: #eab308;
+  color: #171717;
+}
+
+.badge-p {
+  background-color: #16a34a;
+}
+
+.badge-k {
+  background-color: #0284c7;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.animate-modal-pop {
+  animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Helpers */
+.container-custom {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (min-width: 768px) {
+  .container-custom {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .container-custom {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
