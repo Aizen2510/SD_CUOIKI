@@ -11,7 +11,9 @@ import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { LocationModal } from './components/LocationModal';
 import { SearchModal } from './components/SearchModal';
+import { MyTicketsModal } from './components/MyTicketsModal';
 import { ThemeType } from './components/ThemeSwitcher';
+import { api } from './services/api';
 
 import {
   Movie,
@@ -37,8 +39,39 @@ function App() {
     localStorage.setItem('meo_cinema_theme', currentTheme);
   }, [currentTheme]);
 
-  // City state (Default: Hồ Chí Minh)
+  // Cities, Theaters, and Movies state (enhanced with backend API)
+  const [citiesList, setCitiesList] = useState<City[]>(CITIES);
   const [currentCity, setCurrentCity] = useState<City>(CITIES[0]);
+  const [theatersList, setTheatersList] = useState<CinemaTheater[]>(CINEMA_THEATERS);
+  const [moviesNow, setMoviesNow] = useState<Movie[]>(MOVIES_NOW);
+  const [moviesSoon, setMoviesSoon] = useState<Movie[]>(MOVIES_SOON);
+
+  // Load backend data if available
+  useEffect(() => {
+    let isMounted = true;
+    api.getCities().then((data) => {
+      if (isMounted && data.length > 0) {
+        setCitiesList(data);
+        setCurrentCity(data[0]);
+      }
+    });
+
+    api.getMovies('now').then((data) => {
+      if (isMounted && data.length > 0) setMoviesNow(data);
+    });
+
+    api.getMovies('soon').then((data) => {
+      if (isMounted && data.length > 0) setMoviesSoon(data);
+    });
+
+    api.getTheaters().then((data) => {
+      if (isMounted && data.length > 0) setTheatersList(data);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Active navigation tab
   const [activeNavTab, setActiveNavTab] = useState<string>('lich-chieu');
@@ -46,6 +79,7 @@ function App() {
   // Modals state
   const [isLocationModalOpen, setIsLocationModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
+  const [isMyTicketsModalOpen, setIsMyTicketsModalOpen] = useState<boolean>(false);
 
   // Selected movie for detail modal
   const [selectedMovieDetail, setSelectedMovieDetail] = useState<Movie | null>(null);
@@ -73,7 +107,7 @@ function App() {
   };
 
   const handleSelectSearchTheater = (theater: CinemaTheater) => {
-    const city = CITIES.find((c) => c.id === theater.cityId);
+    const city = citiesList.find((c) => c.id === theater.cityId);
     if (city) {
       setCurrentCity(city);
     }
@@ -90,6 +124,7 @@ function App() {
         currentCity={currentCity}
         onOpenLocationModal={() => setIsLocationModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
+        onOpenMyTickets={() => setIsMyTicketsModalOpen(true)}
         activeNavTab={activeNavTab}
         onSelectNavTab={setActiveNavTab}
         currentTheme={currentTheme}
@@ -103,15 +138,15 @@ function App() {
       <ScheduleHub
         currentCity={currentCity}
         onOpenLocationModal={() => setIsLocationModalOpen(true)}
-        theaters={CINEMA_THEATERS}
-        movies={MOVIES_NOW}
+        theaters={theatersList}
+        movies={moviesNow}
         onSelectShowtime={handleSelectShowtime}
         onOpenMovieDetail={(movie) => setSelectedMovieDetail(movie)}
       />
 
       {/* 4. Upcoming Movies (Phim sắp chiếu) */}
       <UpcomingSection
-        movies={MOVIES_SOON}
+        movies={moviesSoon}
         onSelectMovie={(movie) => setSelectedMovieDetail(movie)}
       />
 
@@ -159,13 +194,19 @@ function App() {
       {/* MODAL 4: Instant Search */}
       {isSearchModalOpen && (
         <SearchModal
-          movies={MOVIES_NOW}
-          theaters={CINEMA_THEATERS}
+          movies={moviesNow}
+          theaters={theatersList}
           onSelectMovie={(movie) => setSelectedMovieDetail(movie)}
           onSelectTheater={handleSelectSearchTheater}
           onClose={() => setIsSearchModalOpen(false)}
         />
       )}
+
+      {/* MODAL 5: My Tickets / Tra cứu vé điện tử */}
+      <MyTicketsModal
+        isOpen={isMyTicketsModalOpen}
+        onClose={() => setIsMyTicketsModalOpen(false)}
+      />
     </div>
   );
 }

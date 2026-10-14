@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Search, Menu, X, ChevronDown, Sparkles } from 'lucide-react';
+import { MapPin, Search, Menu, X, ChevronDown, Sparkles, Ticket } from 'lucide-react';
 import { City } from '../types/cinema';
 import { CatLogo } from './CatLogo';
 import { ThemeSwitcher, ThemeType } from './ThemeSwitcher';
@@ -8,6 +8,7 @@ interface HeaderProps {
   currentCity: City;
   onOpenLocationModal: () => void;
   onOpenSearchModal: () => void;
+  onOpenMyTickets: () => void;
   activeNavTab: string;
   onSelectNavTab: (tab: string) => void;
   currentTheme: ThemeType;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentCity,
   onOpenLocationModal,
   onOpenSearchModal,
+  onOpenMyTickets,
   activeNavTab,
   onSelectNavTab,
   currentTheme,
@@ -94,6 +96,31 @@ export const Header: React.FC<HeaderProps> = ({
             onSelectTheme={onSelectTheme}
           />
 
+          {/* My Tickets Button */}
+          <button
+            className="my-tickets-btn"
+            onClick={onOpenMyTickets}
+            title="Tra cứu vé xem phim của tôi"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: '9999px',
+              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(168, 85, 247, 0.12))',
+              border: '1px solid rgba(236, 72, 153, 0.3)',
+              color: 'var(--brand-primary)',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Ticket size={16} color="var(--brand-primary)" />
+            <span>Vé của tôi</span>
+          </button>
+
           <button
             className="location-quick-btn"
             onClick={onOpenLocationModal}
@@ -126,6 +153,29 @@ export const Header: React.FC<HeaderProps> = ({
       {mobileMenuOpen && (
         <div className="mobile-drawer" onClick={() => setMobileMenuOpen(false)}>
           <div className="mobile-drawer-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="my-tickets-btn"
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                padding: '12px 14px',
+                marginBottom: '12px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #a855f7, #ec4899)',
+                color: '#fff',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenMyTickets();
+              }}
+            >
+              <Ticket size={18} />
+              <span>Tra cứu vé của tôi</span>
+            </button>
             {navItems.map((item) => (
               <button
                 key={item.id}

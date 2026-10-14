@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { X, CheckCircle, ShieldCheck, Ticket, Download, ArrowRight } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, CheckCircle, ShieldCheck, Ticket, Download, ArrowRight, User, Phone, AlertCircle } from 'lucide-react';
 import {
   Movie,
   CinemaTheater,
@@ -8,6 +8,7 @@ import {
   DigitalTicket
 } from '../types/cinema';
 import { COMBOS, PROMOTIONS, generateSeatsForShowtime } from '../data/cinemaData';
+import { api } from '../services/api';
 
 interface SeatBookingModalProps {
   movie: Movie;
@@ -25,11 +26,7 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
   onClose
 }) => {
   // Initialize seats
-  const initialSeats = useMemo(() => {
-    return generateSeatsForShowtime(showtime.id);
-  }, [showtime.id]);
-
-  const [seats, setSeats] = useState<Seat[]>(initialSeats);
+  const [seats, setSeats] = useState<Seat[]>(() => generateSeatsForShowtime(showtime.id));
   const [comboQuantities, setComboQuantities] = useState<{ [id: string]: number }>({});
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<{
@@ -38,6 +35,22 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
     title: string;
   } | null>(null);
   const [voucherError, setVoucherError] = useState('');
+  const [bookingError, setBookingError] = useState('');
+
+  // Customer contact info
+  const [customerName, setCustomerName] = useState('Nguyễn Văn An');
+  const [customerPhone, setCustomerPhone] = useState('0909123456');
+
+  // Load live seats from backend
+  useEffect(() => {
+    let mounted = true;
+    api.getShowtimeSeats(showtime.id).then((liveSeats) => {
+      if (mounted && liveSeats && liveSeats.length > 0) {
+        setSeats(liveSeats);
+      }
+    }).catch((e) => console.warn('Could not fetch live seats:', e));
+    return () => { mounted = false; };
+  }, [showtime.id]);
 
   // Payment state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -124,24 +137,30 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
   };
 
   // Confirm booking
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (selectedSeats.length === 0) return;
-
+    setBookingError('');
     setIsProcessing(true);
 
-    setTimeout(() => {
-      setIsProcessing(false);
-      const bookingId = 'MEO-' + Math.floor(100000 + Math.random() * 900000);
-      const chosenCombos = Object.entries(comboQuantities)
-        .filter(([_, q]) => q > 0)
-        .map(([id, q]) => {
-          const c = COMBOS.find((item) => item.id === id);
-          return `${q}x ${c?.name}`;
-        });
+    try {
+      const ticket = await api.createBooking({
+        showtimeId: showtime.id,
+        customerName: customerName.trim() || 'Khách hàng MeoCinema',
+        customerPhone: customerPhone.trim() || '0909123456',
+        seats: selectedSeats,
+        combos: comboQuantities,
+        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+        paymentMethod: 'momo'
+      });
 
-      setConfirmedTicket({
-        bookingId,
-        bookingTime: new Date().toLocaleString('vi-VN'),
+      // Update local seats state to mark these seats as reserved
+      setSeats((prev) =>
+        prev.map((s) => (s.status === 'selected' ? { ...s, status: 'reserved' } : s))
+      );
+
+      // Enhance ticket with movie/theater info if needed
+      const fullTicket: DigitalTicket = {
+        ...ticket,
         movieTitle: movie.title,
         posterUrl: movie.posterUrl,
         cinemaName: theater.name,
@@ -149,13 +168,16 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
         screenRoom: showtime.room,
         format: showtime.format,
         showDate: date,
-        showTime: showtime.time,
-        seatNumbers: selectedSeats.map((s) => s.id),
-        combos: chosenCombos,
-        totalPrice: finalTotal,
-        qrCodeValue: `https://meocinema.vn/ticket/${bookingId}`
-      });
-    }, 1200);
+        showTime: showtime.time
+      };
+
+      setConfirmedTicket(fullTicket);
+    } catch (err: any) {
+      console.error('Booking failed:', err);
+      setBookingError(err.message || 'Không thể tạo đơn đặt vé. Vui lòng thử lại!');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Group seats by row for rendering
@@ -458,6 +480,83 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
                   <span>
                     Đã áp dụng mã {appliedVoucher.code} (-{discountAmount.toLocaleString()}đ)
                   </span>
+                </div>
+              )}
+
+              {/* Customer Info for Ticket & Tra Cứu */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '10px',
+                  padding: '12px',
+                  background: 'rgba(243, 244, 246, 0.6)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(229, 231, 235, 0.8)'
+                }}
+              >
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#4b5563', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                    <User size={12} />
+                    Họ và tên người nhận vé
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Nguyễn Văn An"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      borderRadius: '8px',
+                      border: '1px solid #d1d5db',
+                      background: '#fff',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#4b5563', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                    <Phone size={12} />
+                    Số điện thoại nhận vé & tra cứu
+                  </label>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="0909123456"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      borderRadius: '8px',
+                      border: '1px solid #d1d5db',
+                      background: '#fff',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {bookingError && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '10px',
+                    color: '#b91c1c',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{bookingError}</span>
                 </div>
               )}
 

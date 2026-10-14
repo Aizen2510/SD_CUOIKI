@@ -1,0 +1,48 @@
+# =============================================================================
+# DOCKER COMPOSE CHO DỰ ÁN SD_CUOIKI (MEOCINEMA)
+# Bao gồm:
+# 1. PostgreSQL 16 (Khởi tạo sẵn với file database.sql)
+# 2. FastAPI Backend (Python 3.11/3.14)
+# =============================================================================
+version: '3.8'
+
+services:
+  # Dịch vụ Cơ sở dữ liệu quan hệ PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: meocinema_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: meocinema_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d meocinema_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Dịch vụ Backend FastAPI (Python)
+  backend:
+    build:
+      context: ./BE
+      dockerfile: Dockerfile
+    container_name: meocinema_backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/meocinema_db
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
