@@ -2,7 +2,11 @@ import React from 'react';
 import { CINEPLEX_BRANDS } from '../data/cinemaData';
 import { CatLogo } from './CatLogo';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onOpenDistributedLab?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onOpenDistributedLab }) => {
   return (
     <footer className="momo-footer">
       <div className="container-custom">
@@ -65,8 +69,17 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Bottom copyright */}
-        <div className="footer-bottom-bar">
+        <div className="footer-bottom-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <p>© 2026 MeoCinema. Nền tảng đặt vé xem phim trực tuyến hàng đầu Việt Nam.</p>
+          {onOpenDistributedLab && (
+            <button
+              onClick={onOpenDistributedLab}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', cursor: 'pointer', opacity: 0.6 }}
+              title="Mở Bảng điều khiển kiểm chứng phân tán (Phím tắt: Ctrl + Shift + L)"
+            >
+              Hệ thống phân tán (Lab)
+            </button>
+          )}
         </div>
       </div>
     </footer>

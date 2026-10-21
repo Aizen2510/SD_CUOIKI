@@ -143,6 +143,14 @@ class BookingCreateRequest(BaseModel):
     customerName: str
     customerPhone: str
     customerEmail: Optional[str] = ""
+    showDate: Optional[str] = None
+    showTime: Optional[str] = None
+    movieTitle: Optional[str] = None
+    cinemaName: Optional[str] = None
+    screenRoom: Optional[str] = None
+    showFormat: Optional[str] = None
+    totalSeats: Optional[int] = None
+    basePrice: Optional[float] = None
     seats: List[BookingSeatRequestItem]
     combos: Optional[Dict[str, int]] = Field(default_factory=dict)
     voucherCode: Optional[str] = None
@@ -162,8 +170,43 @@ class DigitalTicketResponse(BaseModel):
     format: str
     showDate: str
     showTime: str
-    seatNumbers: List[str]
-    combos: List[str]
-    totalPrice: float
-    paymentStatus: str
     qrCodeValue: str
+    seatNumbers: List[str] = Field(default_factory=list, validation_alias=AliasChoices("seatNumbers", "seat_numbers"))
+    combos: List[str] = Field(default_factory=list)
+    totalPrice: float = Field(default=0.0, validation_alias=AliasChoices("totalPrice", "total_price", "final_total"))
+    paymentStatus: str = Field(default="Đã thanh toán (MoMo)", validation_alias=AliasChoices("paymentStatus", "payment_status"))
+
+    class Config:
+        populate_by_name = True
+
+# --- User & Auth ---
+class UserRegisterRequest(BaseModel):
+    fullName: str = Field(validation_alias=AliasChoices("fullName", "full_name"))
+    email: str
+    phone: str
+    password: str
+
+    class Config:
+        populate_by_name = True
+
+class UserLoginRequest(BaseModel):
+    account: str # email or phone
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    fullName: str = Field(validation_alias=AliasChoices("fullName", "full_name"))
+    email: str
+    phone: str
+    role: str = "customer"
+    avatarUrl: Optional[str] = Field(default="", validation_alias=AliasChoices("avatarUrl", "avatar_url"))
+    createdAt: Optional[str] = Field(default="", validation_alias=AliasChoices("createdAt", "created_at"))
+
+    class Config:
+        populate_by_name = True
+
+class AuthTokenResponse(BaseModel):
+    accessToken: str
+    tokenType: str = "Bearer"
+    expiresIn: int
+    user: UserResponse

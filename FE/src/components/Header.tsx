@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { MapPin, Search, Menu, X, ChevronDown, Sparkles, Ticket, Activity } from 'lucide-react';
-import { City } from '../types/cinema';
+import React, { useState, useRef, useEffect } from 'react';
+import { MapPin, Search, Menu, X, ChevronDown, Sparkles, Ticket, LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import { City, UserProfile } from '../types/cinema';
 import { CatLogo } from './CatLogo';
 import { ThemeSwitcher, ThemeType } from './ThemeSwitcher';
 
@@ -9,7 +9,9 @@ interface HeaderProps {
   onOpenLocationModal: () => void;
   onOpenSearchModal: () => void;
   onOpenMyTickets: () => void;
-  onOpenDistributedLab: () => void;
+  currentUser: UserProfile | null;
+  onOpenAuthModal: () => void;
+  onLogout: () => void;
   activeNavTab: string;
   onSelectNavTab: (tab: string) => void;
   currentTheme: ThemeType;
@@ -21,13 +23,27 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLocationModal,
   onOpenSearchModal,
   onOpenMyTickets,
-  onOpenDistributedLab,
+  currentUser,
+  onOpenAuthModal,
+  onLogout,
   activeNavTab,
   onSelectNavTab,
   currentTheme,
   onSelectTheme
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const navItems = [
     { id: 'lich-chieu', label: 'Lịch chiếu', hasDropdown: true },
@@ -90,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
         </nav>
 
-        {/* Actions (Theme Switcher, Location, Search, Mobile menu) */}
+        {/* Actions (Theme Switcher, Location, Search, Auth, Mobile menu) */}
         <div className="header-actions">
           {/* Theme Palette Switcher */}
           <ThemeSwitcher
@@ -123,31 +139,157 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Vé của tôi</span>
           </button>
 
-          {/* Lab Hệ Phân Tán Button */}
-          <button
-            className="distributed-lab-btn"
-            onClick={onOpenDistributedLab}
-            title="Mở phòng Lab Thực Nghiệm Hệ Phân Tán (Chương 7)"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 14px',
-              borderRadius: '9999px',
-              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-              color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
-              transition: 'all 0.2s ease',
-              whiteSpace: 'nowrap',
-              border: 'none'
-            }}
-          >
-            <Activity size={16} />
-            <span>Lab Phân Tán (Chương 7)</span>
-          </button>
+          {/* User Auth Section */}
+          {currentUser ? (
+            <div style={{ position: 'relative' }} ref={userMenuRef}>
+              <button
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '5px 12px 5px 6px',
+                  borderRadius: '9999px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.16)',
+                  color: 'var(--text-primary, #fff)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {currentUser.avatarUrl ? (
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt={currentUser.fullName}
+                    style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #ec4899, #a855f7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#fff'
+                    }}
+                  >
+                    {currentUser.fullName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span style={{ fontSize: '13px', fontWeight: 600, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {currentUser.fullName}
+                </span>
+                <ChevronDown size={14} className="opacity-70" />
+              </button>
+
+              {userDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    width: '220px',
+                    backgroundColor: 'var(--card-bg, #1e1e2d)',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    boxShadow: '0 12px 30px rgba(0,0,0,0.4)',
+                    padding: '8px',
+                    zIndex: 1000,
+                    animation: 'fadeIn 0.15s ease-out'
+                  }}
+                >
+                  <div style={{ padding: '8px 12px 10px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary, #fff)' }}>
+                      {currentUser.fullName}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary, #9ca3af)', marginTop: '2px' }}>
+                      {currentUser.email}
+                    </div>
+                    {currentUser.role === 'admin' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '4px', fontSize: '10.5px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(236, 72, 153, 0.2)', color: '#f472b6', fontWeight: 700 }}>
+                        <ShieldCheck size={11} /> Admin
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                      onOpenMyTickets();
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'var(--text-primary, #fff)',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <Ticket size={15} color="var(--brand-primary)" />
+                    <span>Vé đã đặt của tôi</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                      onLogout();
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#f87171',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <LogOut size={15} />
+                    <span>Đăng xuất</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuthModal}
+              title="Đăng nhập tài khoản"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 15px',
+                borderRadius: '9999px',
+                background: 'linear-gradient(135deg, #a855f7, #ec4899)',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: 'none',
+                boxShadow: '0 2px 8px rgba(236, 72, 153, 0.3)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <LogIn size={15} />
+              <span>Đăng nhập</span>
+            </button>
+          )}
 
           <button
             className="location-quick-btn"
@@ -181,6 +323,55 @@ export const Header: React.FC<HeaderProps> = ({
       {mobileMenuOpen && (
         <div className="mobile-drawer" onClick={() => setMobileMenuOpen(false)}>
           <div className="mobile-drawer-content" onClick={(e) => e.stopPropagation()}>
+            {currentUser ? (
+              <div style={{ marginBottom: '16px', padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #ec4899, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff' }}>
+                    {currentUser.fullName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>{currentUser.fullName}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af' }}>{currentUser.email}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onLogout();
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#f87171', padding: '6px', cursor: 'pointer' }}
+                  title="Đăng xuất"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
+            ) : (
+              <button
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '12px 14px',
+                  marginBottom: '10px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #a855f7, #ec4899)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenAuthModal();
+                }}
+              >
+                <LogIn size={18} />
+                <span>Đăng nhập / Đăng ký</span>
+              </button>
+            )}
+
             <button
               className="my-tickets-btn"
               style={{

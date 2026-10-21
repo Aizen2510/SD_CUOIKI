@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import CORS_ORIGINS, BACKEND_HOST, BACKEND_PORT
 from app.database import init_postgres_schema, is_postgres_available
-from app.routers import movies, theaters, showtimes, combos, promotions, bookings, distributed
+from app.routers import movies, theaters, showtimes, combos, promotions, bookings, auth, real_replication
 
 app = FastAPI(
     title="MeoCinema API - SD_CUOIKI",
@@ -23,13 +23,14 @@ app.add_middleware(
 )
 
 # Đăng ký các API Routers
+app.include_router(auth.router)
 app.include_router(movies.router)
 app.include_router(theaters.router)
 app.include_router(showtimes.router)
 app.include_router(combos.router)
 app.include_router(promotions.router)
 app.include_router(bookings.router)
-app.include_router(distributed.router)
+app.include_router(real_replication.router)
 
 @app.on_event("startup")
 def on_startup():

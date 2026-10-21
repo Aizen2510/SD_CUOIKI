@@ -479,7 +479,7 @@ export const MOVIES_NOW: Movie[] = [
     "titleEn": "Ut Lan 2",
     "bannerUrl": "https://image-fworker.momocdn.net/momo-external/9ec3a8ed7c3f49896fb1d8350efb601c9d7179e727e6716ce84c6a78a68a0008?size=M",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/597581002775594-utlan2.jpg?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/-Zp2SAZSULg",
+    "trailerUrl": "https://www.youtube.com/embed/2xpkMDMDksE",
     "duration": 107,
     "releaseDate": "2026-09-21",
     "genre": "Kinh Dị",
@@ -537,7 +537,7 @@ export const MOVIES_NOW: Movie[] = [
     "titleEn": "All Wishes Come True",
     "bannerUrl": "https://image-fworker.momocdn.net/momo-external/0a329bb9920415b74c0ab04321ef91bb16d2a7a552187d893a37a2663842922f?size=M",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/66354116138203447-batien.png?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/eulRjLDwNVw",
+    "trailerUrl": "https://www.youtube.com/embed/SG0X_2BuhM4",
     "duration": 143,
     "releaseDate": "2026-09-11",
     "genre": "Hài, Hoạt Hình, Giả Tượng, Phiêu Lưu",
@@ -653,7 +653,7 @@ export const MOVIES_NOW: Movie[] = [
     "titleEn": "Demon Agent",
     "bannerUrl": "https://image-fworker.momocdn.net/momo-external/7444124e2e7a59aef713d065758f63f99be6678c57150f106ec043381f895bcd?size=M",
     "posterUrl": "https://image-fworker.momocdn.net/momo-external/9be95ba03ac39d2f2b1fe09f9f44da87ad7feeb75cc97e2a729393f50d03754d?size=M",
-    "trailerUrl": "https://www.youtube.com/embed/-f9pxNdJ8K8",
+    "trailerUrl": "https://www.youtube.com/embed/ZHDhTOO7i-s",
     "duration": 116,
     "releaseDate": "2026-09-18",
     "genre": "Hài, Hoạt Hình, Bí Ẩn",
@@ -740,7 +740,7 @@ export const MOVIES_NOW: Movie[] = [
     "titleEn": "SOOBIN LIVE CONCERT MOVIE: ALL-ROUNDER",
     "bannerUrl": "https://cinema.momocdn.net/img/66351554835506935-640X310.png?size=M",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/66351503340702034-soobinconcert.jpg?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/ZImBtmy3XrA",
+    "trailerUrl": "",
     "duration": 109,
     "releaseDate": "2026-09-10",
     "genre": "Hành động, Hài",
@@ -824,9 +824,9 @@ export const MOVIES_NOW: Movie[] = [
     "id": 25100,
     "title": "Cổ Thuật Hắc Ngải",
     "titleEn": "Kong Tao",
-    "bannerUrl": "https://homepage.momocdn.net/default/s/no-image-momo.jpg",
+    "bannerUrl": "https://cinema.momocdn.net/convert-webp/img/170060743393801020-poster.png?size=SM",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/170060743393801020-poster.png?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/ZImBtmy3XrA",
+    "trailerUrl": "",
     "duration": 86,
     "releaseDate": "2026-09-11",
     "genre": "Phiêu Lưu, Gây Cấn",
@@ -875,6 +875,30 @@ export const MOVIES_NOW: Movie[] = [
     ],
     "isHot": false,
     "status": "now"
+  },
+  {
+    "id": 25093,
+    "title": "Ngày Con Còn Mẹ",
+    "titleEn": "Ngày Con Còn Mẹ",
+    "bannerUrl": "https://cinema.momocdn.net/convert-webp/img/169449993208190656-6a853d31e3f95905793733.png?size=SM",
+    "posterUrl": "https://cinema.momocdn.net/convert-webp/img/169449993208190656-6a853d31e3f95905793733.png?size=SM",
+    "trailerUrl": "https://www.youtube.com/embed/kWEdrqJNSoY",
+    "duration": 120,
+    "releaseDate": "2026-10-18",
+    "genre": "Hành động, Phiêu lưu",
+    "ratingPoint": 9.5,
+    "ratingCount": 890,
+    "ageRating": "C13",
+    "formats": [
+      "2D Phụ đề"
+    ],
+    "synopsis": "Siêu phẩm điện ảnh được mong đợi nhất sắp đổ bộ các rạp chiếu phim trên toàn quốc.",
+    "tags": [
+      "Bom tấn",
+      "Sắp chiếu",
+      "Được mong chờ"
+    ],
+    "status": "now"
   }
 ];
 
@@ -882,12 +906,12 @@ export const MOVIES_SOON: Movie[] = [
   {
     "id": 25137,
     "title": "Godzilla Trừ Không",
-    "titleEn": "Godzilla Minus 0",
+    "titleEn": "Godzilla Minus Zero",
     "bannerUrl": "https://image-fworker.momocdn.net/momo-external/5e1f88db3e81d99233a0df80c1089c51ccf2eed31aa9347249f2885f1b314ca8?size=M",
     "posterUrl": "https://image-fworker.momocdn.net/momo-external/e48c72c7ec00add718c18636a5f3962bfb03db852d627f346ab04e36f77397d3?size=M",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "trailerUrl": "https://www.youtube.com/embed/pWJjYoqVSjQ",
     "duration": 135,
-    "releaseDate": "Tháng 10/2026",
+    "releaseDate": "2026-11-06",
     "genre": "Hành động, Phiêu lưu",
     "ratingPoint": 9.5,
     "ratingCount": 890,
@@ -907,11 +931,11 @@ export const MOVIES_SOON: Movie[] = [
     "id": 24641,
     "title": "Dune: Hành Tinh Cát - Phần Ba",
     "titleEn": "Dune: Part Three",
-    "bannerUrl": "https://homepage.momocdn.net/default/s/no-image-momo.jpg",
+    "bannerUrl": "https://image-fworker.momocdn.net/momo-external/612a762b3cb77f060e38f1ae9c06be4b06e90a13ceffd6d599174dd64387bf91?size=M",
     "posterUrl": "https://image-fworker.momocdn.net/momo-external/612a762b3cb77f060e38f1ae9c06be4b06e90a13ceffd6d599174dd64387bf91?size=M",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "trailerUrl": "https://www.youtube.com/embed/iEpdGDM6x48",
     "duration": 120,
-    "releaseDate": "Tháng 10/2026",
+    "releaseDate": "2026-12-16",
     "genre": "Hành động, Phiêu lưu",
     "ratingPoint": 9.5,
     "ratingCount": 890,
@@ -931,33 +955,9 @@ export const MOVIES_SOON: Movie[] = [
     "id": 25092,
     "title": "Người Mẹ Xấu",
     "titleEn": "Người Mẹ Xấu",
-    "bannerUrl": "https://homepage.momocdn.net/default/s/no-image-momo.jpg",
+    "bannerUrl": "https://cinema.momocdn.net/convert-webp/img/169450140804337896-nguoi-me-xau-500_1781239561463.png?size=SM",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/169450140804337896-nguoi-me-xau-500_1781239561463.png?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    "duration": 120,
-    "releaseDate": "Tháng 10/2026",
-    "genre": "Hành động, Phiêu lưu",
-    "ratingPoint": 9.5,
-    "ratingCount": 890,
-    "ageRating": "C13",
-    "formats": [
-      "2D Phụ đề"
-    ],
-    "synopsis": "Siêu phẩm điện ảnh được mong đợi nhất sắp đổ bộ các rạp chiếu phim trên toàn quốc.",
-    "tags": [
-      "Bom tấn",
-      "Sắp chiếu",
-      "Được mong chờ"
-    ],
-    "status": "soon"
-  },
-  {
-    "id": 25093,
-    "title": "Ngày Con Còn Mẹ",
-    "titleEn": "Ngày Con Còn Mẹ",
-    "bannerUrl": "https://homepage.momocdn.net/default/s/no-image-momo.jpg",
-    "posterUrl": "https://cinema.momocdn.net/convert-webp/img/169449993208190656-6a853d31e3f95905793733.png?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "trailerUrl": "",
     "duration": 120,
     "releaseDate": "Tháng 10/2026",
     "genre": "Hành động, Phiêu lưu",
@@ -979,9 +979,9 @@ export const MOVIES_SOON: Movie[] = [
     "id": 25094,
     "title": "Chuyến Đi Nhớ Đời",
     "titleEn": "Chuyến Đi Nhớ Đời",
-    "bannerUrl": "https://homepage.momocdn.net/default/s/no-image-momo.jpg",
+    "bannerUrl": "https://cinema.momocdn.net/convert-webp/img/169449900843357660-6a8e65fcc56f4621082505.png?size=SM",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/169449900843357660-6a8e65fcc56f4621082505.png?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "trailerUrl": "",
     "duration": 120,
     "releaseDate": "Tháng 10/2026",
     "genre": "Hành động, Phiêu lưu",
@@ -1003,9 +1003,9 @@ export const MOVIES_SOON: Movie[] = [
     "id": 25095,
     "title": "Trấn Yểm",
     "titleEn": "Trấn Yểm",
-    "bannerUrl": "https://homepage.momocdn.net/default/s/no-image-momo.jpg",
+    "bannerUrl": "https://cinema.momocdn.net/convert-webp/img/169449770605007316-tra_n-ye_m-poster-co_ng-bo_-du_-a_n.jpg?size=SM",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/169449770605007316-tra_n-ye_m-poster-co_ng-bo_-du_-a_n.jpg?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "trailerUrl": "",
     "duration": 120,
     "releaseDate": "Tháng 10/2026",
     "genre": "Hành động, Phiêu lưu",
@@ -1029,7 +1029,7 @@ export const MOVIES_SOON: Movie[] = [
     "titleEn": "Mẹ Mìn",
     "bannerUrl": "https://image-fworker.momocdn.net/momo-external/3338305f3dab112b763ac3712e6c0b11279c3ac674e4a0bbdcfacb3952481ee9?size=M",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/1189440217284670-memin.jpg?size=SM",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "trailerUrl": "",
     "duration": 125,
     "releaseDate": "Tháng 10/2026",
     "genre": "Hành động, Phiêu lưu",
@@ -1051,9 +1051,9 @@ export const MOVIES_SOON: Movie[] = [
     "id": 24845,
     "title": "Thám Tử Kiên 2: Lời Nguyền Hoàng Kim",
     "titleEn": "Thám Tử Kiên 2: Lời Nguyền Hoàng Kim",
-    "bannerUrl": "https://homepage.momocdn.net/default/s/no-image-momo.jpg",
+    "bannerUrl": "https://cinema.momocdn.net/convert-webp/img/154903476143772777-PosterTHAMTUKIEN2compressed.jpg?size=M",
     "posterUrl": "https://cinema.momocdn.net/convert-webp/img/154903476143772777-PosterTHAMTUKIEN2compressed.jpg?size=M",
-    "trailerUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "trailerUrl": "",
     "duration": 132,
     "releaseDate": "Tháng 10/2026",
     "genre": "Hành động, Phiêu lưu",
@@ -1207,15 +1207,32 @@ function calculateEndTime(start: string, durationMin: number): string {
   return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 }
 
+export function isShowtimePast(dateStr: string, timeStr: string): boolean {
+  if (!dateStr || !timeStr) return false;
+  try {
+    const now = new Date();
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const [h, min] = timeStr.split(':').map(Number);
+    const target = new Date(y, m - 1, d, h, min, 0);
+    return target.getTime() <= now.getTime();
+  } catch {
+    return false;
+  }
+}
+
 export function generateSeatsForShowtime(showtimeId: string) {
+  let reservedList: string[] = [];
+  try {
+    const localStoreStr = localStorage.getItem('meo_reserved_seats_map');
+    if (localStoreStr) {
+      const localMap = JSON.parse(localStoreStr);
+      reservedList = localMap[showtimeId] || [];
+    }
+  } catch {}
+
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'];
   const cols = 12;
   const seats = [];
-
-  let seed = 0;
-  for (let i = 0; i < showtimeId.length; i++) {
-    seed = (seed * 31 + showtimeId.charCodeAt(i)) % 10000;
-  }
 
   for (const row of rows) {
     for (let c = 1; c <= cols; c++) {
@@ -1231,9 +1248,7 @@ export function generateSeatsForShowtime(showtimeId: string) {
         price = 105000;
       }
 
-      seed = (seed * 9301 + 49297) % 233280;
-      const isReserved = (seed / 233280) < 0.22;
-
+      const isReserved = reservedList.includes(seatId);
       seats.push({
         id: seatId,
         row,

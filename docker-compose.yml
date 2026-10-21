@@ -1,24 +1,91 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: meocinema_postgres
+  # pg_auto_failover coordinates real PostgreSQL streaming replication and promotion.
+  pg-monitor:
+    image: meocinema/pg-auto-failover:16
+    build:
+      context: ./BE/pgaf
+      dockerfile: Dockerfile
+    container_name: meocinema_pg_monitor
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: meocinema_db
-    ports:
-      - "5432:5432"
+      PGDATA: /var/lib/postgres/pgaf
+      PG_AUTOCTL_DEBUG: "1"
+    command:
+      - sh
+      - -lc
+      - |
+        if [ -f /var/lib/postgresql/.config/pg_autoctl/var/lib/postgres/pgaf/pg_autoctl.cfg ]; then
+          exec pg_autoctl run --pgdata "$$PGDATA"
+        fi
+        exec pg_autoctl create monitor --ssl-self-signed --auth trust --run
     volumes:
-      - ./BE/database.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - pgdata:/var/lib/postgresql/data
+      - pgaf3_monitor_data:/var/lib/postgres
+      - pgaf3_monitor_home:/var/lib/postgresql
+    expose:
+      - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d meocinema_db"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U autoctl_node -d pg_auto_failover"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout: 3s
+      retries: 30
+
+  pg-node1: &pg-node
+    image: meocinema/pg-auto-failover:16
+    build:
+      context: ./BE/pgaf
+      dockerfile: Dockerfile
+    container_name: meocinema_pg_node1
+    hostname: pg-node1
+    restart: unless-stopped
+    environment: &pg-node-environment
+      PGDATA: /var/lib/postgres/pgaf
+      PGUSER: postgres
+      PGDATABASE: meocinema_db
+      PG_AUTOCTL_MONITOR: postgresql://autoctl_node@pg-monitor/pg_auto_failover?sslmode=require
+      PG_AUTOCTL_DEBUG: "1"
+    command:
+      - sh
+      - -lc
+      - |
+        if [ -f "$$PGDATA/postgresql-auto-failover.conf" ]; then
+          exec pg_autoctl run --pgdata "$$PGDATA"
+        fi
+        exec pg_autoctl create postgres --ssl-self-signed --auth trust --pg-hba-lan --run
+    volumes:
+      - pgaf3_node1_data:/var/lib/postgres
+      - pgaf3_node1_home:/var/lib/postgresql
+    depends_on:
+      pg-monitor:
+        condition: service_healthy
+    expose:
+      - "5432"
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d meocinema_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+
+  pg-node2:
+    <<: *pg-node
+    container_name: meocinema_pg_node2
+    hostname: pg-node2
+    volumes:
+      - pgaf3_node2_data:/var/lib/postgres
+      - pgaf3_node2_home:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5433:5432"
+
+  pg-node3:
+    <<: *pg-node
+    container_name: meocinema_pg_node3
+    hostname: pg-node3
+    volumes:
+      - pgaf3_node3_data:/var/lib/postgres
+      - pgaf3_node3_home:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5434:5432"
 
   backend:
     build:
@@ -26,15 +93,39 @@ services:
       dockerfile: Dockerfile
     container_name: meocinema_backend
     restart: unless-stopped
+    command: ["sh", "-c", "python wait_for_db.py && exec uvicorn app.main:app --host 0.0.0.0 --port 5000"]
     ports:
       - "5000:5000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/meocinema_db
-      - BACKEND_HOST=0.0.0.0
-      - BACKEND_PORT=5000
+      DATABASE_URL: postgresql://postgres@pg-node1:5432,pg-node2:5432,pg-node3:5432/meocinema_db?target_session_attrs=read-write&connect_timeout=3&sslmode=require
+      PG_NODE_HOSTS: pg-node1,pg-node2,pg-node3
+      PG_CLUSTER_DB: meocinema_db
+      PG_CLUSTER_USER: postgres
+      PG_CLUSTER_SSLMODE: require
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 5000
     depends_on:
-      postgres:
+      pg-monitor:
         condition: service_healthy
 
+  dozzle:
+    image: amir20/dozzle:v11.3.4
+    container_name: meocinema_logs
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
 volumes:
-  pgdata:
+  pgaf3_monitor_data:
+  pgaf3_monitor_home:
+  pgaf3_node1_data:
+  pgaf3_node1_home:
+  pgaf3_node2_data:
+  pgaf3_node2_home:
+  pgaf3_node3_data:
+  pgaf3_node3_home:
+  pgdata_legacy:
+    external: true
+    name: sd_cuoiki_pgdata

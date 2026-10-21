@@ -14,13 +14,15 @@ import { SearchModal } from './components/SearchModal';
 import { MyTicketsModal } from './components/MyTicketsModal';
 import { ThemeType } from './components/ThemeSwitcher';
 import { DistributedLabModal } from './components/DistributedLabModal';
+import { AuthModal } from './components/AuthModal';
 import { api } from './services/api';
 
 import {
   Movie,
   CinemaTheater,
   ShowtimeSlot,
-  City
+  City,
+  UserProfile
 } from './types/cinema';
 import {
   CITIES,
@@ -35,10 +37,43 @@ function App() {
     return (localStorage.getItem('meo_cinema_theme') as ThemeType) || 'violet';
   });
 
+  // User Authentication state
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('meo_auth_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  const handleLoginSuccess = (user: UserProfile, token: string) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('meo_auth_token');
+    localStorage.removeItem('meo_auth_user');
+    setCurrentUser(null);
+  };
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
     localStorage.setItem('meo_cinema_theme', currentTheme);
   }, [currentTheme]);
+
+  // Hidden developer shortcut to toggle distributed lab modal: Ctrl + Shift + L
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l' || e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        setIsDistributedLabOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Cities, Theaters, and Movies state (enhanced with backend API)
   const [citiesList, setCitiesList] = useState<City[]>(CITIES);
@@ -127,7 +162,9 @@ function App() {
         onOpenLocationModal={() => setIsLocationModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
         onOpenMyTickets={() => setIsMyTicketsModalOpen(true)}
-        onOpenDistributedLab={() => setIsDistributedLabOpen(true)}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
         activeNavTab={activeNavTab}
         onSelectNavTab={setActiveNavTab}
         currentTheme={currentTheme}
@@ -160,7 +197,7 @@ function App() {
       <FaqSection />
 
       {/* 7. Footer with Cinema Partners */}
-      <Footer />
+      <Footer onOpenDistributedLab={() => setIsDistributedLabOpen(true)} />
 
       {/* MODAL 1: Seat Booking & Checkout */}
       {selectedBooking && (
@@ -169,6 +206,7 @@ function App() {
           theater={selectedBooking.theater}
           date={selectedBooking.date}
           showtime={selectedBooking.showtime}
+          currentUser={currentUser}
           onClose={() => setSelectedBooking(null)}
         />
       )}
@@ -208,6 +246,7 @@ function App() {
       {/* MODAL 5: My Tickets / Tra cứu vé điện tử */}
       <MyTicketsModal
         isOpen={isMyTicketsModalOpen}
+        currentUser={currentUser}
         onClose={() => setIsMyTicketsModalOpen(false)}
       />
 
@@ -215,6 +254,13 @@ function App() {
       <DistributedLabModal
         isOpen={isDistributedLabOpen}
         onClose={() => setIsDistributedLabOpen(false)}
+      />
+
+      {/* MODAL 7: Authentication (Login / Register) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
       />
     </div>
   );

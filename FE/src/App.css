@@ -75,6 +75,447 @@
   gap: 10px;
 }
 
+/* My Tickets modal: these structural classes are intentional because this app
+   does not load Tailwind's utility stylesheet. */
+.modal-backdrop-custom {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.modal-container-custom {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 672px);
+  max-height: 90vh;
+  overflow: hidden;
+  color: #1f2937;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+}
+
+.my-tickets-header {
+  position: relative;
+  padding: 24px;
+  color: #fff;
+  background: linear-gradient(110deg, #6b21a8, #4338ca 55%, #db2777);
+}
+
+.my-tickets-header h2,
+.my-tickets-header p {
+  margin: 0;
+}
+
+.my-tickets-header h2 {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.my-tickets-header p {
+  margin-top: 6px;
+  color: #ede9fe;
+  font-size: 12px;
+}
+
+.modal-container-custom .modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.my-tickets-search-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.my-tickets-search-tabs button {
+  min-height: 42px;
+  padding: 9px 14px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.my-tickets-search-bar {
+  padding: 18px 24px;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.my-tickets-search-bar form {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+}
+
+.my-tickets-search-bar .ticket-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.my-tickets-search-bar input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px 10px 42px;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid #9ca3af;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.08);
+}
+
+.my-tickets-search-bar .ticket-search-icon {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 14px;
+  color: #6b7280;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.my-tickets-search-bar input::placeholder {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.my-tickets-search-bar input:focus {
+  border-color: #7c3aed;
+  outline: 3px solid rgba(124, 58, 237, 0.18);
+}
+
+.my-tickets-search-bar form > button {
+  min-width: 112px;
+  min-height: 48px;
+  padding: 10px 20px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  background: linear-gradient(110deg, #7c3aed, #db2777);
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.22);
+}
+
+.my-tickets-search-bar form > button:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.my-tickets-search-bar form > button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.my-tickets-results {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-height: 60vh;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.my-tickets-results .my-ticket-card {
+  border-color: #d8c8f3;
+  box-shadow: 0 3px 10px rgba(49, 30, 80, 0.08);
+}
+
+.my-tickets-results .my-ticket-card:hover {
+  border-color: #b99de6;
+  box-shadow: 0 8px 20px rgba(49, 30, 80, 0.12);
+}
+
+.my-ticket-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(110deg, #f5f3ff, #eef2ff 55%, #fdf2f8);
+  border-bottom: 1px solid #e9d5ff;
+}
+
+.ticket-card-identity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  min-width: 0;
+}
+
+.ticket-state-icon.paid {
+  color: #059669;
+}
+
+.ticket-state-icon.refunded {
+  color: #7c3aed;
+}
+
+.my-ticket-card-body {
+  padding: 20px;
+}
+
+.my-tickets-results .ticket-payment-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.my-tickets-results .ticket-payment-status.is-paid {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.my-tickets-results .ticket-payment-status.is-refunded {
+  gap: 5px;
+  color: #14532d;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.my-tickets-results .ticket-booking-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.my-tickets-results .ticket-refund-success {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 14px 16px 0;
+  padding: 12px 14px;
+  color: #14532d;
+  background: linear-gradient(100deg, #f0fdf4, #ecfdf5);
+  border: 1px solid #86efac;
+  border-left: 4px solid #16a34a;
+  border-radius: 12px;
+}
+
+.ticket-refund-success-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  color: #fff;
+  background: #16a34a;
+  border-radius: 50%;
+}
+
+.ticket-refund-success > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ticket-refund-success strong {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.ticket-refund-success span {
+  color: #166534;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.my-tickets-results .ticket-action-btn {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.my-tickets-results .ticket-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.my-tickets-results .ticket-action-btn:focus-visible {
+  outline: 3px solid rgba(124, 58, 237, 0.35);
+  outline-offset: 2px;
+}
+
+.my-tickets-results .ticket-refund-btn {
+  color: #fff;
+  background: #c62828;
+  border-color: #a61f1f;
+  box-shadow: 0 2px 5px rgba(153, 27, 27, 0.2);
+}
+
+.my-tickets-results .ticket-refund-btn:hover:not(:disabled) {
+  background: #a61f1f;
+}
+
+.my-tickets-results .ticket-refund-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.my-tickets-results .ticket-print-btn {
+  color: #374151;
+  background: #fff;
+  border-color: #9ca3af;
+}
+
+.my-tickets-results .ticket-print-btn:hover {
+  background: #f3f4f6;
+}
+
+.my-tickets-results .ticket-refund-unavailable {
+  color: #7f1d1d;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  padding: 8px 11px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .modal-backdrop-custom {
+    padding: 8px;
+  }
+
+  .modal-container-custom {
+    max-height: 94vh;
+    border-radius: 14px;
+  }
+
+  .my-tickets-header,
+  .my-tickets-results {
+    padding: 18px;
+  }
+
+  .my-tickets-search-bar {
+    padding: 12px 18px;
+  }
+
+  .my-tickets-search-bar form {
+    gap: 8px;
+  }
+
+  .my-tickets-search-tabs button {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .my-tickets-search-bar input {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .my-tickets-search-bar form > button {
+    min-width: 88px;
+    min-height: 44px;
+    padding: 8px 13px;
+  }
+
+  .my-tickets-results {
+    gap: 16px;
+    padding: 14px;
+  }
+
+  .my-ticket-card-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .ticket-card-identity {
+    gap: 7px;
+  }
+
+  .my-tickets-results .ticket-booking-time {
+    width: 100%;
+    padding-left: 29px;
+    font-size: 12px;
+  }
+
+  .my-tickets-results .ticket-refund-success {
+    margin: 12px 12px 0;
+    padding: 10px;
+  }
+
+  .ticket-refund-success strong {
+    font-size: 13px;
+  }
+
+  .ticket-refund-success span {
+    font-size: 11px;
+  }
+
+  .my-ticket-card-body {
+    padding: 14px;
+  }
+
+  .ticket-bottom-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ticket-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .my-tickets-results .ticket-booking-time {
+    font-size: 12px;
+  }
+
+  .my-tickets-results .ticket-action-btn {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
 .location-quick-btn {
   display: flex;
   align-items: center;
@@ -463,7 +904,7 @@
 
 @media (min-width: 900px) {
   .booking-two-columns {
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   }
 }
 
@@ -595,6 +1036,7 @@
 
 /* Right Column: Showtimes & Movies */
 .showtimes-column {
+  min-width: 0;
   background-color: var(--gray-50);
   display: flex;
   flex-direction: column;
@@ -604,6 +1046,8 @@
 
 /* Date Selector Strip */
 .date-selector-strip {
+  flex: 0 0 auto;
+  min-width: 0;
   padding: 14px 20px;
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
@@ -621,14 +1065,21 @@
 }
 
 .date-pill-btn {
-  flex-shrink: 0;
-  padding: 8px 14px;
+  flex: 0 0 96px;
+  box-sizing: border-box;
+  min-height: 96px;
+  padding: 16px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
   background-color: var(--bg-card);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   transition: all 0.2s ease;
-  min-width: 80px;
+  white-space: nowrap;
 }
 
 .date-pill-btn:hover {
@@ -644,7 +1095,7 @@
 }
 
 .date-pill-day {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
 }
@@ -654,7 +1105,7 @@
 }
 
 .date-pill-num {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   margin-top: 2px;
 }
@@ -831,6 +1282,31 @@
   margin-top: 2px;
 }
 
+.showtime-slot-pill.past-slot {
+  opacity: 0.45;
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(0.8);
+}
+
+.showtime-slot-pill.past-slot:hover {
+  border-color: #e2e8f0;
+  background-color: #f1f5f9;
+  transform: none;
+  box-shadow: none;
+}
+
+.showtime-slot-pill.past-slot .showtime-main-time {
+  color: #94a3b8;
+}
+
+.showtime-slot-pill.past-slot .showtime-sub-info {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 /* =========================================
    5. SEAT BOOKING MODAL
 ========================================= */
@@ -998,11 +1474,21 @@
 }
 
 .seat-btn.reserved {
-  background-color: #1e293b;
-  color: #475569;
-  border: 1px solid #1e293b;
-  cursor: not-allowed;
-  opacity: 0.4;
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  border: 1px solid #b91c1c !important;
+  cursor: not-allowed !important;
+  opacity: 0.95 !important;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.45);
+  position: relative;
+}
+
+.seat-btn.reserved::after {
+  content: '✕';
+  position: absolute;
+  font-size: 11px;
+  font-weight: 900;
+  color: #ffffff;
 }
 
 .seat-btn:hover:not(.reserved) {

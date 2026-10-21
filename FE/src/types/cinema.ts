@@ -102,6 +102,9 @@ export interface BookingState {
 export interface DigitalTicket {
   bookingId: string;
   bookingTime: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
   movieTitle: string;
   posterUrl: string;
   cinemaName: string;
@@ -114,4 +117,23 @@ export interface DigitalTicket {
   combos: string[];
   totalPrice: number;
   qrCodeValue: string;
+  paymentStatus?: string;
+  apiBacked?: boolean;
+}
+
+export interface UserProfile {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+  avatarUrl?: string;
+  createdAt?: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user: UserProfile;
 }

@@ -190,16 +190,34 @@ export const api = {
    * Get seats layout for a showtime
    */
   async getShowtimeSeats(showtimeId: string): Promise<Seat[]> {
+    // Get reserved seats from localStorage fallback
+    const localStoreStr = localStorage.getItem('meo_reserved_seats_map');
+    const localReservedMap = localStoreStr ? JSON.parse(localStoreStr) : {};
+    const localReservedSeats: string[] = localReservedMap[showtimeId] || [];
+
     try {
       const res = await fetchWithTimeout(`${API_BASE_URL}/showtimes/${showtimeId}/seats`);
       if (res.ok) {
         const data = await res.json();
-        return data.seats;
+        // Merge backend seats with local reserved seats
+        return data.seats.map((s: Seat) => {
+          if (localReservedSeats.includes(s.id)) {
+            return { ...s, status: 'reserved' };
+          }
+          return s;
+        });
       }
     } catch (e) {
       console.warn('[API] Using local generated seats:', e);
     }
-    return generateSeatsForShowtime(showtimeId);
+
+    const baseSeats = generateSeatsForShowtime(showtimeId);
+    return baseSeats.map((s) => {
+      if (localReservedSeats.includes(s.id)) {
+        return { ...s, status: 'reserved' };
+      }
+      return s;
+    });
   },
 
   /**
@@ -253,59 +271,65 @@ export const api = {
     customerName: string;
     customerPhone: string;
     customerEmail?: string;
+    showDate?: string;
+    showTime?: string;
+    movieTitle?: string;
+    cinemaName?: string;
+    screenRoom?: string;
+    showFormat?: string;
+    totalSeats?: number;
+    basePrice?: number;
     seats: Seat[];
     combos: { [id: string]: number };
     voucherCode?: string;
     paymentMethod?: string;
   }): Promise<DigitalTicket> {
+    const seatCodes = payload.seats.map((s) => s.id);
+
+    // Check local double-booking check first
+    try {
+      const localStoreStr = localStorage.getItem('meo_reserved_seats_map');
+      const localReservedMap = localStoreStr ? JSON.parse(localStoreStr) : {};
+      const reservedList: string[] = localReservedMap[payload.showtimeId] || [];
+      const conflict = seatCodes.find((sId) => reservedList.includes(sId));
+      if (conflict) {
+        throw new Error(`Ghế ${conflict} vừa có khách đặt trước. Vui lòng chọn ghế khác!`);
+      }
+    } catch (err: any) {
+      if (err.message && err.message.toLowerCase().includes('ghế')) {
+        throw err;
+      }
+    }
+
+    let receivedApiResponse = false;
     try {
       const res = await fetchWithTimeout(`${API_BASE_URL}/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      receivedApiResponse = true;
+
       if (res.ok) {
+        // Record reserved seats locally
+        try {
+          const localStoreStr = localStorage.getItem('meo_reserved_seats_map');
+          const localReservedMap = localStoreStr ? JSON.parse(localStoreStr) : {};
+          const curList: string[] = localReservedMap[payload.showtimeId] || [];
+          localReservedMap[payload.showtimeId] = Array.from(new Set([...curList, ...seatCodes]));
+          localStorage.setItem('meo_reserved_seats_map', JSON.stringify(localReservedMap));
+        } catch (e) {}
+
         return await res.json();
       } else {
+        // Backend returned error (409 Conflict, 400 Bad Request, etc.)
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Không thể tạo đơn đặt vé');
+        const errDetail = errorData.detail || 'Không thể tạo đơn đặt vé do trùng ghế hoặc lỗi hệ thống';
+        throw new Error(errDetail);
       }
     } catch (e: any) {
-      if (e.message && e.message.includes('ghế')) {
-        throw e;
-      }
-      console.warn('[API] Booking endpoint offline or error, generating local ticket:', e);
-      // Fallback ticket creation
-      const bookingId = 'MEO-' + Math.floor(100000 + Math.random() * 900000);
-      const chosenCombos = Object.entries(payload.combos)
-        .filter(([_, q]) => q > 0)
-        .map(([id, q]) => {
-          const c = COMBOS.find((item) => item.id === id);
-          return `${q}x ${c?.name}`;
-        });
-
-      const seatTotal = payload.seats.reduce((s, seat) => s + seat.price, 0);
-      const comboTotal = Object.entries(payload.combos).reduce((sum, [cId, q]) => {
-        const c = COMBOS.find((item) => item.id === cId);
-        return sum + (c ? c.price * q : 0);
-      }, 0);
-
-      return {
-        bookingId,
-        bookingTime: new Date().toLocaleString('vi-VN'),
-        movieTitle: 'Phim MeoCinema',
-        posterUrl: '',
-        cinemaName: 'Cụm rạp MeoCinema',
-        cinemaAddress: 'TP. Hồ Chí Minh',
-        screenRoom: 'Cinema 1',
-        format: '2D Phụ đề',
-        showDate: new Date().toISOString().split('T')[0],
-        showTime: '19:30',
-        seatNumbers: payload.seats.map((s) => s.id),
-        combos: chosenCombos,
-        totalPrice: seatTotal + comboTotal,
-        qrCodeValue: `https://meocinema.vn/ticket/${bookingId}`
-      };
+      if (receivedApiResponse) throw e;
+      throw new Error('Không kết nối được máy chủ đặt vé. Vui lòng thử lại; chưa tạo vé.');
     }
   },
 
@@ -327,141 +351,113 @@ export const api = {
    */
   async getTicketsByPhone(phone: string): Promise<DigitalTicket[]> {
     try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/bookings/by-phone/${phone}`);
-      if (res.ok) return await res.json();
+      const res = await fetchWithTimeout(`${API_BASE_URL}/bookings/by-phone/${encodeURIComponent(phone)}`);
+      if (!res.ok) throw new Error(`Ticket lookup failed (${res.status})`);
+      return await res.json();
     } catch (e) {
       console.warn('[API] Lookup by phone failed:', e);
+      throw e;
     }
-    return [];
   },
 
-  /**
-   * Distributed Systems Demo APIs (Chapter 7: Consistency & Replication)
-   */
-  async getDistributedPrimaryStatus(): Promise<any> {
+  async refundTicket(bookingId: string, customerPhone: string): Promise<any> {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/bookings/${encodeURIComponent(bookingId)}/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_phone: customerPhone })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Không thể hoàn vé. Vui lòng thử lại.');
+
+    // Clear this browser's optimistic reservation; backend availability remains authoritative.
     try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/status`);
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Primary status failed:', e);
-    }
-    return null;
+      const map = JSON.parse(localStorage.getItem('meo_reserved_seats_map') || '{}');
+      const held: string[] = map[data.showtimeId] || [];
+      map[data.showtimeId] = held.filter((seat) => !data.releasedSeats.includes(seat));
+      localStorage.setItem('meo_reserved_seats_map', JSON.stringify(map));
+    } catch {}
+
+    return data;
   },
 
-  async setDistributedLag(lagSeconds: number): Promise<any> {
+  async getRealReplicationStatus(): Promise<any> {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/replication/real/status`, {}, 15000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Không đọc được trạng thái cụm PostgreSQL.');
+    return data;
+  },
+
+  async writeRealReplicationDemo(): Promise<any> {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/replication/real/demo-write`, {
+      method: 'POST'
+    }, 15000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Không ghi được bản ghi demo.');
+    return data;
+  },
+
+  async verifyRealReplicationDemo(eventId: string): Promise<any> {
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/distributed/replication/real/verify/${encodeURIComponent(eventId)}`,
+      {},
+      15000
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Không kiểm tra được bản sao.');
+    return data;
+  },
+
+  // =============================================================================
+  // AUTHENTICATION & USER MANAGEMENT
+  // =============================================================================
+  async login(account: string, password: string): Promise<any> {
     try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/set-lag`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lag_seconds: lagSeconds })
+        body: JSON.stringify({ account, password })
       });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Set lag failed:', e);
+      if (res.ok) {
+        return await res.json();
+      }
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Đăng nhập không thành công');
+    } catch (e: any) {
+      // Authentication always requires the API and its database.
+      if (e.message && e.message !== 'Failed to fetch' && !e.message.includes('abort')) {
+        throw e;
+      }
+      throw new Error(e.message || 'Không thể kết nối đến máy chủ xác thực');
     }
-    return null;
   },
 
-  async bookDistributedTicket(clientId: string, ticketData: any): Promise<any> {
+  async register(fullName: string, email: string, phone: string, password: string): Promise<any> {
     try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/book`, {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, ...ticketData })
+        body: JSON.stringify({ fullName, email, phone, password })
       });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Book ticket failed:', e);
+      if (res.ok) {
+        return await res.json();
+      }
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Đăng ký không thành công');
+    } catch (e: any) {
+      if (e.message && e.message !== 'Failed to fetch' && !e.message.includes('abort')) {
+        throw e;
+      }
+      throw new Error(e.message || 'Không thể kết nối đến máy chủ đăng ký');
     }
-    return null;
   },
 
-  async readDistributedTicket(clientId: string, bookingId: string, enableRYW: boolean): Promise<any> {
+  async getMe(token: string): Promise<any> {
     try {
-      const url = `${API_BASE_URL}/distributed/primary-replica/read?client_id=${clientId}&booking_id=${bookingId}&enable_read_your_writes=${enableRYW}`;
-      const res = await fetchWithTimeout(url);
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Read ticket failed:', e);
-    }
-    return null;
-  },
-
-  async resetDistributedPrimary(): Promise<any> {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/reset`, { method: 'POST' });
+      const res = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (res.ok) return await res.json();
     } catch (e) {}
-    return null;
-  },
-
-  async getQuorumStatus(): Promise<any> {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/status`);
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Quorum status failed:', e);
-    }
-    return null;
-  },
-
-  async toggleQuorumNode(nodeId: string): Promise<any> {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/toggle-node`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ node_id: nodeId })
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Toggle quorum node failed:', e);
-    }
-    return null;
-  },
-
-  async quorumWrite(key: string, value: any): Promise<any> {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/write`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value })
-      });
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Quorum write failed:', e);
-    }
-    return null;
-  },
-
-  async quorumRead(key: string): Promise<any> {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/read?key=${key}`);
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Quorum read failed:', e);
-    }
-    return null;
-  },
-
-  async resetQuorum(): Promise<any> {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/reset`, { method: 'POST' });
-      if (res.ok) return await res.json();
-    } catch (e) {}
-    return null;
-  },
-
-  async testRaceCondition(seatCode = 'VIP-F8', numRequests = 50): Promise<any> {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/concurrency/test-race-condition`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seat_code: seatCode, num_requests: numRequests })
-      }, 8000);
-      if (res.ok) return await res.json();
-    } catch (e) {
-      console.warn('[Distributed API] Test race condition failed:', e);
-    }
     return null;
   }
 };

@@ -57,35 +57,58 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
         {/* Modal Scrollable Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
           {/* Trailer Player if available */}
-          {movie.trailerUrl && (
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                paddingBottom: '56.25%',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                backgroundColor: '#000',
-                marginBottom: '20px',
-                boxShadow: 'var(--shadow-md)'
-              }}
-            >
-              <iframe
-                src={`${movie.trailerUrl}?autoplay=1&mute=0`}
-                title={`${movie.title} Trailer`}
+          {(() => {
+            const getEmbedUrl = (rawUrl?: string): string => {
+              if (!rawUrl || !rawUrl.trim()) {
+                return 'https://www.youtube.com/embed/Way9Dexny3w';
+              }
+              const url = rawUrl.trim();
+              if (url.includes('youtube.com/embed/')) {
+                return url;
+              }
+              if (url.includes('watch?v=')) {
+                const videoId = url.split('watch?v=')[1]?.split('&')[0];
+                if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+              }
+              if (url.includes('youtu.be/')) {
+                const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+                if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+              }
+              return url;
+            };
+
+            const embedUrl = getEmbedUrl(movie.trailerUrl);
+
+            return (
+              <div
                 style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
+                  position: 'relative',
                   width: '100%',
-                  height: '100%',
-                  border: 'none'
+                  paddingBottom: '56.25%',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  backgroundColor: '#000',
+                  marginBottom: '20px',
+                  boxShadow: 'var(--shadow-md)'
                 }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          )}
+              >
+                <iframe
+                  src={`${embedUrl}?autoplay=1&mute=0&rel=0`}
+                  title={`${movie.title} Trailer`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    border: 'none'
+                  }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            );
+          })()}
 
           <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
             <img

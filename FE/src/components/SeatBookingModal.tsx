@@ -5,9 +5,10 @@ import {
   CinemaTheater,
   ShowtimeSlot,
   Seat,
-  DigitalTicket
+  DigitalTicket,
+  UserProfile
 } from '../types/cinema';
-import { COMBOS, PROMOTIONS, generateSeatsForShowtime } from '../data/cinemaData';
+import { COMBOS, PROMOTIONS, generateSeatsForShowtime, isShowtimePast } from '../data/cinemaData';
 import { api } from '../services/api';
 
 interface SeatBookingModalProps {
@@ -15,6 +16,7 @@ interface SeatBookingModalProps {
   theater: CinemaTheater;
   date: string;
   showtime: ShowtimeSlot;
+  currentUser?: UserProfile | null;
   onClose: () => void;
 }
 
@@ -23,6 +25,7 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
   theater,
   date,
   showtime,
+  currentUser,
   onClose
 }) => {
   // Initialize seats
@@ -37,19 +40,57 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
   const [voucherError, setVoucherError] = useState('');
   const [bookingError, setBookingError] = useState('');
 
-  // Customer contact info
-  const [customerName, setCustomerName] = useState('Nguyễn Văn An');
-  const [customerPhone, setCustomerPhone] = useState('0909123456');
+  // Check if showtime has already passed
+  const isPast = isShowtimePast(date, showtime.time);
 
-  // Load live seats from backend
+  // Customer contact info (Autofill with currentUser if logged in)
+  const [customerName, setCustomerName] = useState(currentUser?.fullName || 'Nguyễn Văn An');
+  const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '0909123456');
+
+  // Payment method selection & lock timer
+  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'zalopay' | 'card' | 'qr'>('momo');
+  const [timeLeft, setTimeLeft] = useState<number>(300); // 5:00 lock countdown
+
+  // Timer countdown for distributed seat holding
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Load live seats from backend and sync continuously (Real-time polling every 2.5s)
   useEffect(() => {
     let mounted = true;
-    api.getShowtimeSeats(showtime.id).then((liveSeats) => {
-      if (mounted && liveSeats && liveSeats.length > 0) {
-        setSeats(liveSeats);
-      }
-    }).catch((e) => console.warn('Could not fetch live seats:', e));
-    return () => { mounted = false; };
+
+    const fetchSeats = () => {
+      api.getShowtimeSeats(showtime.id).then((liveSeats) => {
+        if (mounted && liveSeats && liveSeats.length > 0) {
+          setSeats((prev) => {
+            const selectedIds = new Set(prev.filter((s) => s.status === 'selected').map((s) => s.id));
+            return liveSeats.map((s) => {
+              if (s.status === 'reserved') {
+                if (selectedIds.has(s.id)) {
+                  setBookingError(`Ghế ${s.id} vừa được khách khác đặt trước. Ghế đã tự động chuyển sang màu đỏ!`);
+                }
+                return s;
+              }
+              if (selectedIds.has(s.id)) {
+                return { ...s, status: 'selected' };
+              }
+              return s;
+            });
+          });
+        }
+      }).catch((e) => console.warn('Could not fetch live seats:', e));
+    };
+
+    fetchSeats();
+    const interval = setInterval(fetchSeats, 2500);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [showtime.id]);
 
   // Payment state
@@ -58,6 +99,7 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
 
   // Toggle seat selection
   const handleSeatClick = (seatId: string) => {
+    if (isPast) return;
     setSeats((prev) =>
       prev.map((seat) => {
         if (seat.id !== seatId || seat.status === 'reserved') return seat;
@@ -138,6 +180,10 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
 
   // Confirm booking
   const handlePayment = async () => {
+    if (isPast) {
+      setBookingError(`Suất chiếu lúc ${showtime.time} ngày ${date} đã qua giờ chiếu. Vui lòng chọn suất chiếu khác!`);
+      return;
+    }
     if (selectedSeats.length === 0) return;
     setBookingError('');
     setIsProcessing(true);
@@ -147,18 +193,37 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
         showtimeId: showtime.id,
         customerName: customerName.trim() || 'Khách hàng MeoCinema',
         customerPhone: customerPhone.trim() || '0909123456',
+        showDate: date,
+        showTime: showtime.time,
+        movieTitle: movie.title,
+        cinemaName: theater.name,
+        screenRoom: showtime.room,
+        showFormat: showtime.format,
+        totalSeats: showtime.totalSeats,
+        basePrice: showtime.price,
         seats: selectedSeats,
         combos: comboQuantities,
         voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
-        paymentMethod: 'momo'
+        paymentMethod
       });
 
-      // Update local seats state to mark these seats as reserved
+      const bookedSeatIds = selectedSeats.map((s) => s.id);
+
+      // 1. Immediately persist booked seats in localStorage map so F5 keeps them RED forever
+      try {
+        const localStoreStr = localStorage.getItem('meo_reserved_seats_map');
+        const localReservedMap = localStoreStr ? JSON.parse(localStoreStr) : {};
+        const curList: string[] = localReservedMap[showtime.id] || [];
+        localReservedMap[showtime.id] = Array.from(new Set([...curList, ...bookedSeatIds]));
+        localStorage.setItem('meo_reserved_seats_map', JSON.stringify(localReservedMap));
+      } catch (e) {}
+
+      // 2. Update local seats state to mark these seats as reserved
       setSeats((prev) =>
         prev.map((s) => (s.status === 'selected' ? { ...s, status: 'reserved' } : s))
       );
 
-      // Enhance ticket with movie/theater info if needed
+      // 3. Enhance ticket with movie/theater info and explicit seatNumbers
       const fullTicket: DigitalTicket = {
         ...ticket,
         movieTitle: movie.title,
@@ -168,13 +233,26 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
         screenRoom: showtime.room,
         format: showtime.format,
         showDate: date,
-        showTime: showtime.time
+        showTime: showtime.time,
+        seatNumbers: (Array.isArray(ticket.seatNumbers) && ticket.seatNumbers.length > 0)
+          ? ticket.seatNumbers
+          : bookedSeatIds,
+        totalPrice: ticket.totalPrice || selectedSeats.reduce((sum, s) => sum + s.price, 0),
+        combos: ticket.combos || Object.entries(comboQuantities).filter(([_, q]) => q > 0).map(([cId, q]) => `${q}x Combo`)
       };
+
+      // 4. Save to localStorage so MyTicketsModal always finds it immediately
+      try {
+        const saved = JSON.parse(localStorage.getItem('meo_saved_tickets') || '[]');
+        const updated = [fullTicket, ...saved.filter((t: any) => t.bookingId !== fullTicket.bookingId)];
+        localStorage.setItem('meo_saved_tickets', JSON.stringify(updated));
+      } catch (e) {}
 
       setConfirmedTicket(fullTicket);
     } catch (err: any) {
       console.error('Booking failed:', err);
-      setBookingError(err.message || 'Không thể tạo đơn đặt vé. Vui lòng thử lại!');
+      const errMsg = err.message || 'Không thể tạo đơn đặt vé. Ghế có thể vừa có khách khác đặt!';
+      setBookingError(errMsg);
     } finally {
       setIsProcessing(false);
     }
@@ -218,6 +296,26 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
             <X size={18} />
           </button>
         </div>
+
+        {/* Warning Banner if Showtime is Past */}
+        {isPast && (
+          <div
+            style={{
+              padding: '12px 18px',
+              backgroundColor: '#fef2f2',
+              borderBottom: '1px solid #fecaca',
+              color: '#b91c1c',
+              fontSize: '13px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            <AlertCircle size={20} className="shrink-0" />
+            <span>⚠️ Suất chiếu này ({showtime.time} • {date}) đã bắt đầu hoặc đã qua giờ chiếu. Hệ thống đã khóa tính năng đặt vé cho suất này!</span>
+          </div>
+        )}
 
         {/* Digital Ticket Screen if Confirmed */}
         {confirmedTicket ? (
@@ -284,14 +382,20 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
                 </div>
                 <div className="ticket-row">
                   <span className="ticket-row-label">Ghế ngồi:</span>
-                  <span className="ticket-row-val" style={{ color: 'var(--pink-primary)' }}>
-                    {confirmedTicket.seatNumbers.join(', ')}
+                  <span className="ticket-row-val" style={{ color: 'var(--pink-primary)', fontWeight: 800 }}>
+                    {Array.isArray(confirmedTicket.seatNumbers)
+                      ? confirmedTicket.seatNumbers.join(', ')
+                      : Array.isArray((confirmedTicket as any).seats)
+                      ? (confirmedTicket as any).seats.join(', ')
+                      : String(confirmedTicket.seatNumbers || 'VIP-F8')}
                   </span>
                 </div>
-                {confirmedTicket.combos.length > 0 && (
+                {confirmedTicket.combos && (Array.isArray(confirmedTicket.combos) ? confirmedTicket.combos.length > 0 : true) && (
                   <div className="ticket-row">
                     <span className="ticket-row-label">Bắp nước:</span>
-                    <span className="ticket-row-val">{confirmedTicket.combos.join(', ')}</span>
+                    <span className="ticket-row-val">
+                      {Array.isArray(confirmedTicket.combos) ? confirmedTicket.combos.join(', ') : String(confirmedTicket.combos)}
+                    </span>
                   </div>
                 )}
                 <div className="ticket-row" style={{ borderBottom: 'none' }}>
@@ -391,8 +495,8 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
                   <span>Đang chọn</span>
                 </div>
                 <div className="legend-item">
-                  <div className="legend-box" style={{ background: '#1e293b', opacity: 0.5 }} />
-                  <span>Đã bán</span>
+                  <div className="legend-box" style={{ background: '#dc2626', border: '1px solid #b91c1c' }} />
+                  <span style={{ color: '#ef4444', fontWeight: 700 }}>Đã có người đặt (Màu đỏ)</span>
                 </div>
               </div>
 
@@ -540,6 +644,69 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
                 </div>
               </div>
 
+              {/* Distributed Lock Countdown Alert */}
+              {selectedSeats.length > 0 && (
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(79, 70, 229, 0.08)',
+                    border: '1px solid rgba(79, 70, 229, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '12px',
+                    color: '#4338ca'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={15} />
+                    <span>Hệ thống phân tán đang khóa giữ ghế tạm thời (Linearizability):</span>
+                  </div>
+                  <span style={{ fontWeight: 800, fontFamily: 'monospace', fontSize: '13px', color: '#dc2626' }}>
+                    {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              )}
+
+              {/* Payment Method Selector */}
+              <div>
+                <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '6px' }}>
+                  Chọn phương thức thanh toán
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  {[
+                    { id: 'momo', label: 'Ví MoMo', icon: '💖', badge: 'Khuyên dùng' },
+                    { id: 'zalopay', label: 'ZaloPay', icon: '⚡', badge: 'Giảm 10K' },
+                    { id: 'card', label: 'Thẻ / Visa', icon: '💳', badge: 'Quốc tế' },
+                    { id: 'qr', label: 'VietQR', icon: '📱', badge: 'Napas247' }
+                  ].map((pm) => (
+                    <button
+                      key={pm.id}
+                      type="button"
+                      onClick={() => setPaymentMethod(pm.id as any)}
+                      style={{
+                        padding: '8px 6px',
+                        borderRadius: '10px',
+                        border: paymentMethod === pm.id ? '2px solid var(--brand-primary, #ec4899)' : '1px solid #e5e7eb',
+                        backgroundColor: paymentMethod === pm.id ? 'rgba(236, 72, 153, 0.06)' : '#ffffff',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ fontSize: '16px', marginBottom: '2px' }}>{pm.icon}</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: paymentMethod === pm.id ? 'var(--brand-primary, #ec4899)' : '#374151' }}>
+                        {pm.label}
+                      </div>
+                      <div style={{ fontSize: '9px', color: paymentMethod === pm.id ? 'var(--brand-primary, #ec4899)' : '#9ca3af', fontWeight: 600 }}>
+                        {pm.badge}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {bookingError && (
                 <div
                   style={{
@@ -589,14 +756,37 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
               <button
                 className="momo-pay-cta-btn"
                 onClick={handlePayment}
-                disabled={selectedSeats.length === 0 || isProcessing}
+                disabled={isPast || selectedSeats.length === 0 || isProcessing}
+                style={{
+                  background: isPast
+                    ? '#9ca3af'
+                    : paymentMethod === 'momo'
+                    ? 'linear-gradient(135deg, #a855f7, #ec4899)'
+                    : paymentMethod === 'zalopay'
+                    ? 'linear-gradient(135deg, #0284c7, #06b6d4)'
+                    : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                  cursor: isPast ? 'not-allowed' : selectedSeats.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: isPast ? 0.75 : 1
+                }}
               >
                 {isProcessing ? (
-                  <span>Đang xử lý thanh toán MeoCinema...</span>
+                  <span>Đang kết nối cổng thanh toán & xuất vé...</span>
+                ) : isPast ? (
+                  <span>⚠️ Suất chiếu đã qua giờ chiếu (Ngừng nhận đặt vé)</span>
                 ) : (
                   <>
                     <Ticket size={20} />
-                    <span>Thanh toán đặt vé MeoCinema</span>
+                    <span>
+                      Thanh toán {finalTotal.toLocaleString()}đ (
+                      {paymentMethod === 'momo'
+                        ? 'Ví MoMo'
+                        : paymentMethod === 'zalopay'
+                        ? 'Ví ZaloPay'
+                        : paymentMethod === 'card'
+                        ? 'Thẻ Quốc tế'
+                        : 'Mã VietQR'}
+                      )
+                    </span>
                     <ArrowRight size={18} />
                   </>
                 )}

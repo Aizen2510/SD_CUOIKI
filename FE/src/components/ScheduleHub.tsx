@@ -18,7 +18,8 @@ import {
 import {
   CINEPLEX_BRANDS,
   generateDatesList,
-  generateShowtimesForMovieAndTheater
+  generateShowtimesForMovieAndTheater,
+  isShowtimePast
 } from '../data/cinemaData';
 
 interface ScheduleHubProps {
@@ -327,12 +328,14 @@ export const ScheduleHub: React.FC<ScheduleHubProps> = ({
 
                           <div className="showtime-chips-grid">
                             {slots.map((slot) => {
+                              const isPast = isShowtimePast(selectedDateStr, slot.time);
                               return (
                                 <button
                                   key={slot.id}
-                                  className="showtime-slot-pill"
+                                  className={`showtime-slot-pill ${isPast ? 'past-slot' : ''}`}
+                                  disabled={isPast}
                                   onClick={() => {
-                                    if (activeTheater) {
+                                    if (!isPast && activeTheater) {
                                       onSelectShowtime(
                                         movie,
                                         activeTheater,
@@ -341,11 +344,20 @@ export const ScheduleHub: React.FC<ScheduleHubProps> = ({
                                       );
                                     }
                                   }}
-                                  title={`Chọn suất ${slot.time} - ${slot.room}`}
+                                  title={
+                                    isPast
+                                      ? `Suất chiếu ${slot.time} đã qua giờ chiếu (Không thể đặt vé)`
+                                      : `Chọn suất ${slot.time} - ${slot.room}`
+                                  }
                                 >
-                                  <span className="showtime-main-time">{slot.time}</span>
+                                  <span
+                                    className="showtime-main-time"
+                                    style={isPast ? { textDecoration: 'line-through', opacity: 0.6 } : {}}
+                                  >
+                                    {slot.time}
+                                  </span>
                                   <span className="showtime-sub-info">
-                                    {slot.room} • {slot.price.toLocaleString()}đ
+                                    {isPast ? 'Đã qua giờ' : `${slot.room} • ${slot.price.toLocaleString()}đ`}
                                   </span>
                                 </button>
                               );

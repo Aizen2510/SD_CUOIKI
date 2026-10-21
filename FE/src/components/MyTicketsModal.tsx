@@ -1,52 +1,62 @@
-import React, { useState } from 'react';
-import { X, Search, Ticket, Calendar, Clock, MapPin, Film, Phone, QrCode, Printer, CheckCircle, AlertCircle } from 'lucide-react';
-import { DigitalTicket } from '../types/cinema';
+import React, { useState, useEffect } from 'react';
+import { X, Search, Ticket, Calendar, Clock, MapPin, Film, Printer, CheckCircle, AlertCircle, User, Sparkles, RotateCcw, BadgeCheck } from 'lucide-react';
+import { DigitalTicket, UserProfile } from '../types/cinema';
 import { api } from '../services/api';
 
 interface MyTicketsModalProps {
   isOpen: boolean;
+  currentUser?: UserProfile | null;
   onClose: () => void;
 }
 
-export const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose }) => {
-  const [searchType, setSearchType] = useState<'phone' | 'code'>('phone');
-  const [searchValue, setSearchValue] = useState<string>('0909123456');
+export const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, currentUser, onClose }) => {
+  const [searchValue, setSearchValue] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [tickets, setTickets] = useState<DigitalTicket[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>('');
-  const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const [refundError, setRefundError] = useState<string>('');
+  const [refundingTicket, setRefundingTicket] = useState<string>('');
 
-  if (!isOpen) return null;
+  // Auto-search tickets when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSearchValue('');
+      if (currentUser?.phone) executeSearch(currentUser.phone);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, currentUser]);
 
-  const handleSearch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const query = searchValue.trim();
+  const executeSearch = async (queryStr: string) => {
+    const query = queryStr.trim();
     if (!query) {
-      setErrorMsg('Vui lòng nhập số điện thoại hoặc mã vé');
+      setErrorMsg('Vui lòng nhập số điện thoại để tra cứu vé.');
       return;
     }
 
     setIsLoading(true);
     setErrorMsg('');
-    setHasSearched(true);
 
     try {
-      if (searchType === 'code') {
-        const ticket = await api.getTicketByCode(query.toUpperCase());
-        if (ticket) {
-          setTickets([ticket]);
-        } else {
-          setTickets([]);
-          setErrorMsg(`Không tìm thấy vé với mã "${query.toUpperCase()}". Vui lòng kiểm tra lại!`);
-        }
+      let foundTickets: DigitalTicket[] = [];
+      const results = await api.getTicketsByPhone(query);
+      if (results && results.length > 0) foundTickets = results.map((ticket) => ({ ...ticket, apiBacked: true }));
+
+      // 2. Merge with localStorage saved tickets
+      try {
+        const localSaved: DigitalTicket[] = JSON.parse(localStorage.getItem('meo_saved_tickets') || '[]');
+        const localMatches = localSaved.filter((t) => t.customerPhone?.trim() === query);
+        localMatches.forEach((lt) => {
+          if (!foundTickets.some((t) => t.bookingId === lt.bookingId)) foundTickets.push(lt);
+        });
+      } catch (e) {}
+
+      if (foundTickets.length > 0) {
+        setTickets(foundTickets);
+        setErrorMsg('');
       } else {
-        const results = await api.getTicketsByPhone(query);
-        if (results && results.length > 0) {
-          setTickets(results);
-        } else {
-          setTickets([]);
-          setErrorMsg(`Không tìm thấy vé nào được đặt với số điện thoại ${query}`);
-        }
+        setTickets([]);
+        // Keep errorMsg empty so clean empty-state UI displays gracefully.
+        setErrorMsg('');
       }
     } catch (err: any) {
       setErrorMsg('Có lỗi xảy ra khi tra cứu vé. Vui lòng thử lại sau.');
@@ -55,210 +65,284 @@ export const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose 
     }
   };
 
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    executeSearch(searchValue);
+  };
+
+  const hasShowtimeStarted = (ticket: DigitalTicket) => {
+    const time = ticket.showTime?.slice(0, 8) || '00:00:00';
+    const start = new Date(`${ticket.showDate}T${time}`);
+    return Number.isFinite(start.getTime()) && start.getTime() <= Date.now();
+  };
+
+  const isRefunded = (ticket: DigitalTicket) =>
+    ticket.paymentStatus?.toLowerCase().includes('hoàn') || ticket.paymentStatus?.toLowerCase() === 'refunded';
+
+  const handleRefund = async (ticket: DigitalTicket) => {
+    if (!ticket.customerPhone) {
+      setRefundError('Vé thiếu số điện thoại đặt vé nên không thể xác thực hoàn tiền.');
+      return;
+    }
+    if (!window.confirm(`Hoàn vé ${ticket.bookingId} (${ticket.seatNumbers.join(', ')})? Ghế sẽ được mở bán lại.`)) return;
+
+    setRefundError('');
+    setRefundingTicket(ticket.bookingId);
+    try {
+      await api.refundTicket(ticket.bookingId, ticket.customerPhone);
+      await executeSearch(searchValue);
+    } catch (err: any) {
+      setRefundError(err.message || 'Không thể hoàn vé. Vui lòng thử lại.');
+    } finally {
+      setRefundingTicket('');
+    }
+  };
+
   const handlePrint = (ticket: DigitalTicket) => {
     window.print();
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="modal-backdrop-custom">
-      <div className="modal-container-custom max-w-2xl w-full p-0 overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in">
+      <div className="modal-container-custom animate-fade-in">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-pink-600 p-6 text-white relative">
+        <div className="my-tickets-header">
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"
+            className="modal-close-btn"
+            style={{ position: 'absolute', top: '16px', right: '16px', color: '#fff', background: 'rgba(255,255,255,0.2)' }}
             title="Đóng"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
 
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
-              <Ticket size={24} className="text-yellow-300" />
+              <Ticket size={26} className="text-yellow-300" />
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight">Tra Cứu Vé Của Tôi</h2>
-              <p className="text-sm text-purple-100 opacity-90">
-                Nhập số điện thoại hoặc mã đơn vé để xem lại vé điện tử & mã QR vào rạp
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold tracking-tight">Vé Đã Đặt Của Tôi</h2>
+                <span className="px-2 py-0.5 text-xs font-bold bg-pink-500/30 text-pink-200 border border-pink-400/30 rounded-full flex items-center gap-1">
+                  <Sparkles size={11} /> MeoCinema
+                </span>
+              </div>
+              <p className="text-xs text-purple-100 opacity-90 mt-1">
+                Xem lại danh sách vé xem phim, sơ đồ ghế đã chọn và mã QR vào rạp
               </p>
             </div>
           </div>
 
-          {/* Search Tabs */}
-          <div className="flex gap-2 mt-5">
-            <button
-              onClick={() => {
-                setSearchType('phone');
-                setSearchValue('0909123456');
-                setErrorMsg('');
-              }}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                searchType === 'phone'
-                  ? 'bg-white text-purple-900 shadow-md'
-                  : 'bg-white/15 text-white hover:bg-white/25'
-              }`}
-            >
-              <Phone size={15} />
-              Theo Số Điện Thoại
-            </button>
-            <button
-              onClick={() => {
-                setSearchType('code');
-                setSearchValue('MEO-849201');
-                setErrorMsg('');
-              }}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                searchType === 'code'
-                  ? 'bg-white text-purple-900 shadow-md'
-                  : 'bg-white/15 text-white hover:bg-white/25'
-              }`}
-            >
-              <QrCode size={15} />
-              Theo Mã Đặt Vé (MEO-XXXXXX)
-            </button>
-          </div>
+          {/* User Account Info Pill if Logged In */}
+          {currentUser && (
+            <div className="mt-4 p-2.5 px-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <User size={14} className="text-yellow-300" />
+                <span>
+                  Đang xem vé của tài khoản: <strong>{currentUser.fullName}</strong> ({currentUser.phone || currentUser.email})
+                </span>
+              </div>
+              <span className="bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full font-semibold text-[11px]">
+                Đã đăng nhập
+              </span>
+            </div>
+          )}
+
         </div>
 
         {/* Search Input Bar */}
-        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+        <div className="my-tickets-search-bar">
           <form onSubmit={handleSearch} className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <div className="ticket-search-field">
+              <Search className="ticket-search-icon" size={18} />
               <input
                 type="text"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                placeholder={
-                  searchType === 'phone'
-                    ? 'Nhập số điện thoại đặt vé (ví dụ: 0909123456)'
-                    : 'Nhập mã vé (ví dụ: MEO-849201)'
-                }
-                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition-all shadow-sm"
+                placeholder="Nhập số điện thoại tài khoản"
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition-all shadow-sm"
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
+              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
             >
-              {isLoading ? 'Đang tìm...' : 'Tra cứu'}
+              {isLoading ? 'Đang tải...' : 'Tìm vé'}
             </button>
           </form>
 
           {errorMsg && (
-            <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-xl text-sm flex items-center gap-2 border border-red-100">
-              <AlertCircle size={16} className="shrink-0" />
+            <div className="mt-2.5 p-2.5 px-3 bg-red-50 text-red-700 rounded-xl text-xs flex items-center gap-2 border border-red-100">
+              <AlertCircle size={15} className="shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
         </div>
 
         {/* Results Container */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
-          {!hasSearched && tickets.length === 0 && (
-            <div className="text-center py-10 text-gray-400">
-              <Ticket size={48} className="mx-auto mb-3 opacity-30 text-purple-600" />
-              <p className="text-sm font-medium">Nhấn "Tra cứu" để tìm thông tin vé đã đặt của bạn</p>
-              <p className="text-xs text-gray-400 mt-1">Gợi ý thử nghiệm: 0909123456 hoặc mã vé MEO-849201</p>
+        <div className="my-tickets-results">
+          {refundError && (
+            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+              <AlertCircle size={15} /> {refundError}
             </div>
           )}
-
-          {hasSearched && tickets.length === 0 && !errorMsg && (
+          {tickets.length === 0 && !isLoading && (
             <div className="text-center py-10 text-gray-400">
-              <AlertCircle size={48} className="mx-auto mb-3 opacity-30 text-gray-400" />
-              <p className="text-sm font-medium">Không tìm thấy vé xem phim nào</p>
+              <Ticket size={48} className="mx-auto mb-3 opacity-30 text-purple-600" />
+              <p className="text-sm font-semibold text-gray-700">Chưa tìm thấy vé xem phim nào</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Backend chưa tìm thấy vé theo thông tin này. Hãy kiểm tra lại số điện thoại hoặc mã vé.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-4 px-4 py-2 bg-pink-500 text-white text-xs font-bold rounded-xl shadow hover:bg-pink-600 transition-all"
+              >
+                Đặt vé ngay
+              </button>
             </div>
           )}
 
           {tickets.map((t) => (
             <div
               key={t.bookingId}
-              className="border-2 border-purple-100 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all"
+              className="my-ticket-card border-2 border-purple-100 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all"
             >
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 border-b border-purple-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckCircle size={18} className="text-emerald-500" />
+              <div className={`my-ticket-card-header ${isRefunded(t) ? 'is-refunded' : ''}`}>
+                <div className="ticket-card-identity">
+                  {isRefunded(t)
+                    ? <BadgeCheck size={21} className="ticket-state-icon refunded" />
+                    : <CheckCircle size={21} className="ticket-state-icon paid" />}
                   <span className="font-extrabold text-purple-900 tracking-wide text-sm">{t.bookingId}</span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
-                    Đã thanh toán
+                  <span className={`ticket-payment-status ${isRefunded(t) ? 'is-refunded' : 'is-paid'}`}>
+                    {isRefunded(t) && <CheckCircle size={14} />}
+                    {t.paymentStatus || 'Đã thanh toán'}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 font-medium">
-                  {t.bookingTime}
+                <div className="ticket-booking-time">
+                  <Clock size={14} /> Đặt lúc: {t.bookingTime}
                 </div>
               </div>
 
-              <div className="p-5 flex flex-col md:flex-row gap-5 items-center">
-                {/* Poster or QR */}
-                <div className="flex flex-col items-center shrink-0">
-                  <div className="w-28 h-28 p-2 bg-white rounded-xl border border-gray-200 shadow-sm flex items-center justify-center">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
-                        t.qrCodeValue || t.bookingId
-                      )}`}
-                      alt="QR Code"
-                      className="w-full h-full object-contain"
-                    />
+              {isRefunded(t) && (
+                <div className="ticket-refund-success" role="status">
+                  <div className="ticket-refund-success-icon"><CheckCircle size={18} /></div>
+                  <div>
+                    <strong>Hoàn vé thành công</strong>
+                    <span>Tiền đã được hoàn · Ghế đã được mở bán lại</span>
                   </div>
-                  <span className="text-[11px] font-semibold text-gray-400 mt-1.5 uppercase tracking-wider">
-                    Mã quét vào rạp
-                  </span>
                 </div>
+              )}
+
+              <div className="my-ticket-card-body p-4 flex flex-col md:flex-row gap-4 items-center">
+                {/* QR Code */}
+                {!isRefunded(t) && (
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="w-24 h-24 p-2 bg-white rounded-xl border border-gray-200 shadow-sm flex items-center justify-center">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
+                          t.qrCodeValue || t.bookingId
+                        )}`}
+                        alt="QR Code"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-400 mt-1.5 uppercase tracking-wider">
+                      Quét tại Kiosk
+                    </span>
+                  </div>
+                )}
 
                 {/* Details */}
-                <div className="flex-1 space-y-2 text-sm w-full">
-                  <h3 className="font-bold text-gray-900 text-base flex items-center gap-1.5">
-                    <Film size={16} className="text-purple-600" />
-                    {t.movieTitle}
+                <div className="flex-1 space-y-2 text-xs w-full">
+                  <h3 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                    <Film size={15} className="text-purple-600" />
+                    <span>{t.movieTitle}</span>
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600">
                     <div className="flex items-center gap-1.5">
-                      <MapPin size={14} className="text-gray-400 shrink-0" />
-                      <span className="font-medium text-gray-800">{t.cinemaName}</span>
+                      <MapPin size={13} className="text-gray-400 shrink-0" />
+                      <span className="font-semibold text-gray-800">{t.cinemaName}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <Calendar size={14} className="text-gray-400 shrink-0" />
+                      <Calendar size={13} className="text-gray-400 shrink-0" />
                       <span>{t.showDate}</span>
-                      <Clock size={14} className="text-gray-400 shrink-0 ml-2" />
+                      <Clock size={13} className="text-gray-400 shrink-0 ml-2" />
                       <span className="font-bold text-purple-700">{t.showTime}</span>
                     </div>
                   </div>
 
-                  <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-100/80 flex flex-wrap gap-4 items-center justify-between text-xs">
+                  <div className="bg-purple-50/70 p-2.5 rounded-xl border border-purple-100 flex flex-wrap gap-3 items-center justify-between text-xs">
                     <div>
-                      <span className="text-gray-500">Phòng chiếu: </span>
+                      <span className="text-gray-500">Phòng: </span>
                       <span className="font-bold text-gray-800">{t.screenRoom} ({t.format})</span>
                     </div>
 
                     <div>
-                      <span className="text-gray-500">Số ghế: </span>
-                      <span className="font-extrabold text-purple-700 bg-white px-2 py-0.5 rounded border border-purple-200">
-                        {t.seatNumbers.join(', ')}
+                      <span className="text-gray-500">Ghế đã đặt: </span>
+                      <span
+                        style={{
+                          backgroundColor: '#dc2626',
+                          color: '#ffffff',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontWeight: 800,
+                          fontSize: '11.5px',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {Array.isArray(t.seatNumbers)
+                          ? t.seatNumbers.join(', ')
+                          : Array.isArray((t as any).seats)
+                          ? (t as any).seats.join(', ')
+                          : Array.isArray((t as any).seat_numbers)
+                          ? (t as any).seat_numbers.join(', ')
+                          : (t.seatNumbers ? String(t.seatNumbers) : 'VIP-F8')}
                       </span>
                     </div>
 
-                    {t.combos && t.combos.length > 0 && (
+                    {t.combos && (Array.isArray(t.combos) ? t.combos.length > 0 : true) && (
                       <div className="w-full text-xs text-gray-600">
                         <span className="text-gray-500">Bắp nước: </span>
-                        <span className="font-medium text-pink-600">{t.combos.join(', ')}</span>
+                        <span className="font-medium text-pink-600">
+                          {Array.isArray(t.combos) ? t.combos.join(', ') : String(t.combos)}
+                        </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="text-xs text-gray-500">
-                      Tổng tiền: <span className="text-base font-extrabold text-pink-600">{t.totalPrice.toLocaleString()}đ</span>
+                  <div className="ticket-bottom-row flex items-center justify-between pt-1">
+                    <div className="text-gray-500">
+                      Tổng tiền: <span className="text-sm font-extrabold text-pink-600">{(t.totalPrice || (t as any).final_total || 105000).toLocaleString()}đ</span>
                     </div>
 
-                    <button
-                      onClick={() => handlePrint(t)}
-                      className="px-3.5 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                    >
-                      <Printer size={13} />
-                      In vé
-                    </button>
+                    <div className="ticket-actions flex items-center gap-2">
+                      {t.apiBacked && !isRefunded(t) && !hasShowtimeStarted(t) && (
+                        <button
+                          onClick={() => handleRefund(t)}
+                          disabled={refundingTicket === t.bookingId}
+                          className="ticket-action-btn ticket-refund-btn"
+                        >
+                          <RotateCcw size={15} />
+                          {refundingTicket === t.bookingId ? 'Đang hoàn...' : 'Hoàn vé'}
+                        </button>
+                      )}
+                      {t.apiBacked && !isRefunded(t) && hasShowtimeStarted(t) && (
+                        <span className="ticket-refund-unavailable">Đã đến giờ chiếu · Không thể hoàn</span>
+                      )}
+                      {!isRefunded(t) && (
+                        <button
+                          onClick={() => handlePrint(t)}
+                          className="ticket-action-btn ticket-print-btn"
+                        >
+                          <Printer size={15} /> In vé
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
