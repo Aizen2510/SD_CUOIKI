@@ -39,10 +39,10 @@ export const UpcomingSection: React.FC<UpcomingSectionProps> = ({
 
               <div className="upcoming-info-pad">
                 <span
-                  className={`badge-rate badge-${movie.ageRating.toLowerCase()}`}
+                  className={`badge-rate badge-${(movie.ageRating || 'C13').toLowerCase()}`}
                   style={{ alignSelf: 'flex-start', marginBottom: '6px' }}
                 >
-                  {movie.ageRating}
+                  {movie.ageRating || 'C13'}
                 </span>
 
                 <h4 className="upcoming-film-title" title={movie.title}>

@@ -94,7 +94,23 @@ export const api = {
   async getMovies(status: 'now' | 'soon' = 'now'): Promise<Movie[]> {
     try {
       const res = await fetchWithTimeout(`${API_BASE_URL}/movies?status=${status}`);
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        return data.map((m: any) => ({
+          ...m,
+          ageRating: m.ageRating ?? m.age_rating ?? 'C13',
+          posterUrl: m.posterUrl ?? m.poster_url ?? '',
+          bannerUrl: m.bannerUrl ?? m.banner_url ?? '',
+          trailerUrl: m.trailerUrl ?? m.trailer_url ?? '',
+          releaseDate: m.releaseDate ?? m.release_date ?? '',
+          ratingPoint: m.ratingPoint ?? m.rating_point ?? 9.0,
+          ratingCount: m.ratingCount ?? m.rating_count ?? 0,
+          titleEn: m.titleEn ?? m.title_en ?? '',
+          isHot: m.isHot ?? m.is_hot ?? false,
+          formats: m.formats ?? ['2D Phụ đề'],
+          cast: m.cast ?? m.cast_members ?? ''
+        }));
+      }
     } catch (e) {
       console.warn('[API] Using local movies data:', e);
     }
@@ -113,7 +129,20 @@ export const api = {
       if (params.toString()) url += `?${params.toString()}`;
 
       const res = await fetchWithTimeout(url);
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        let list = data.map((t: any) => ({
+          ...t,
+          brandId: t.brandId ?? t.brand_id,
+          brandCode: t.brandCode ?? t.brand_code,
+          cityId: t.cityId ?? t.city_id,
+          cityName: t.cityName ?? t.city_name ?? '',
+          reviewCount: t.reviewCount ?? t.review_count ?? 0
+        }));
+        if (cityId) list = list.filter((t: any) => t.cityId === cityId);
+        if (brandCode && brandCode !== 'ALL') list = list.filter((t: any) => t.brandCode === brandCode);
+        return list;
+      }
     } catch (e) {
       console.warn('[API] Using local theaters data:', e);
     }
@@ -136,7 +165,21 @@ export const api = {
       if (params.toString()) url += `?${params.toString()}`;
 
       const res = await fetchWithTimeout(url);
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        return data.map((s: any) => ({
+          ...s,
+          movieId: s.movieId ?? s.movie_id,
+          theaterId: s.theaterId ?? s.theater_id,
+          time: s.time ?? s.start_time,
+          endTime: s.endTime ?? s.end_time,
+          date: s.date ?? s.show_date,
+          room: s.room ?? s.room_name,
+          price: s.price ?? s.base_price,
+          emptySeats: s.emptySeats ?? s.empty_seats,
+          totalSeats: s.totalSeats ?? s.total_seats
+        }));
+      }
     } catch (e) {
       console.warn('[API] Using fallback showtimes:', e);
     }
@@ -290,5 +333,135 @@ export const api = {
       console.warn('[API] Lookup by phone failed:', e);
     }
     return [];
+  },
+
+  /**
+   * Distributed Systems Demo APIs (Chapter 7: Consistency & Replication)
+   */
+  async getDistributedPrimaryStatus(): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/status`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Primary status failed:', e);
+    }
+    return null;
+  },
+
+  async setDistributedLag(lagSeconds: number): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/set-lag`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lag_seconds: lagSeconds })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Set lag failed:', e);
+    }
+    return null;
+  },
+
+  async bookDistributedTicket(clientId: string, ticketData: any): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/book`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, ...ticketData })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Book ticket failed:', e);
+    }
+    return null;
+  },
+
+  async readDistributedTicket(clientId: string, bookingId: string, enableRYW: boolean): Promise<any> {
+    try {
+      const url = `${API_BASE_URL}/distributed/primary-replica/read?client_id=${clientId}&booking_id=${bookingId}&enable_read_your_writes=${enableRYW}`;
+      const res = await fetchWithTimeout(url);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Read ticket failed:', e);
+    }
+    return null;
+  },
+
+  async resetDistributedPrimary(): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/primary-replica/reset`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return null;
+  },
+
+  async getQuorumStatus(): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/status`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Quorum status failed:', e);
+    }
+    return null;
+  },
+
+  async toggleQuorumNode(nodeId: string): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/toggle-node`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ node_id: nodeId })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Toggle quorum node failed:', e);
+    }
+    return null;
+  },
+
+  async quorumWrite(key: string, value: any): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Quorum write failed:', e);
+    }
+    return null;
+  },
+
+  async quorumRead(key: string): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/read?key=${key}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Quorum read failed:', e);
+    }
+    return null;
+  },
+
+  async resetQuorum(): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/quorum/reset`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return null;
+  },
+
+  async testRaceCondition(seatCode = 'VIP-F8', numRequests = 50): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/concurrency/test-race-condition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seat_code: seatCode, num_requests: numRequests })
+      }, 8000);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Distributed API] Test race condition failed:', e);
+    }
+    return null;
   }
 };

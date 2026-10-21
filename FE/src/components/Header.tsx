@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Search, Menu, X, ChevronDown, Sparkles, Ticket } from 'lucide-react';
+import { MapPin, Search, Menu, X, ChevronDown, Sparkles, Ticket, Activity } from 'lucide-react';
 import { City } from '../types/cinema';
 import { CatLogo } from './CatLogo';
 import { ThemeSwitcher, ThemeType } from './ThemeSwitcher';
@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenLocationModal: () => void;
   onOpenSearchModal: () => void;
   onOpenMyTickets: () => void;
+  onOpenDistributedLab: () => void;
   activeNavTab: string;
   onSelectNavTab: (tab: string) => void;
   currentTheme: ThemeType;
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLocationModal,
   onOpenSearchModal,
   onOpenMyTickets,
+  onOpenDistributedLab,
   activeNavTab,
   onSelectNavTab,
   currentTheme,
@@ -119,6 +121,32 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Ticket size={16} color="var(--brand-primary)" />
             <span>Vé của tôi</span>
+          </button>
+
+          {/* Lab Hệ Phân Tán Button */}
+          <button
+            className="distributed-lab-btn"
+            onClick={onOpenDistributedLab}
+            title="Mở phòng Lab Thực Nghiệm Hệ Phân Tán (Chương 7)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: '9999px',
+              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap',
+              border: 'none'
+            }}
+          >
+            <Activity size={16} />
+            <span>Lab Phân Tán (Chương 7)</span>
           </button>
 
           <button

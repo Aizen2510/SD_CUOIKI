@@ -1,13 +1,6 @@
-# =============================================================================
-# DOCKER COMPOSE CHO DỰ ÁN SD_CUOIKI (MEOCINEMA)
-# Bao gồm:
-# 1. PostgreSQL 16 (Khởi tạo sẵn với file database.sql)
-# 2. FastAPI Backend (Python 3.11/3.14)
-# =============================================================================
 version: '3.8'
 
 services:
-  # Dịch vụ Cơ sở dữ liệu quan hệ PostgreSQL
   postgres:
     image: postgres:16-alpine
     container_name: meocinema_postgres
@@ -27,7 +20,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Dịch vụ Backend FastAPI (Python)
   backend:
     build:
       context: ./BE

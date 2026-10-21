@@ -200,8 +200,8 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
         <div className="seat-modal-header">
           <div>
             <div className="flex items-center gap-2">
-              <span className={`badge-rate badge-${movie.ageRating.toLowerCase()}`}>
-                {movie.ageRating}
+              <span className={`badge-rate badge-${(movie.ageRating || 'C13').toLowerCase()}`}>
+                {movie.ageRating || 'C13'}
               </span>
               <h3 className="seat-modal-movie-title">{movie.title}</h3>
             </div>

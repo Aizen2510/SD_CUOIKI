@@ -3,11 +3,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import CORS_ORIGINS, BACKEND_HOST, BACKEND_PORT
 from app.database import init_postgres_schema, is_postgres_available
-from app.routers import movies, theaters, showtimes, combos, promotions, bookings
+from app.routers import movies, theaters, showtimes, combos, promotions, bookings, distributed
 
 app = FastAPI(
     title="MeoCinema API - SD_CUOIKI",
-    description="Hệ thống Backend FastAPI Quản lý Đặt Vé Xem Phim & Suất Chiếu MeoCinema (Đồ án SD_CUOIKI)",
+    description="Hệ thống Backend FastAPI Quản lý Đặt Vé Xem Phim & Suất Chiếu MeoCinema",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -29,18 +29,19 @@ app.include_router(showtimes.router)
 app.include_router(combos.router)
 app.include_router(promotions.router)
 app.include_router(bookings.router)
+app.include_router(distributed.router)
 
 @app.on_event("startup")
 def on_startup():
     print("=" * 60)
-    print("🚀 Khởi động MeoCinema FastAPI Server (SD_CUOIKI)")
-    print(f"📡 API Documentation (Swagger UI): http://localhost:{BACKEND_PORT}/docs")
-    print(f"📡 Redoc: http://localhost:{BACKEND_PORT}/redoc")
+    print("Khởi động MeoCinema FastAPI Server (SD_CUOIKI)")
+    print(f"API Documentation (Swagger UI): http://localhost:{BACKEND_PORT}/docs")
+    print(f"Redoc: http://localhost:{BACKEND_PORT}/redoc")
     pg_ok = init_postgres_schema()
     if pg_ok:
-        print("✅ Đã kết nối & nạp database.sql vào PostgreSQL thành công!")
+        print("Đã kết nối & nạp database.sql vào PostgreSQL thành công!")
     else:
-        print("ℹ️  Đang chạy với Hybrid Repository Engine (Sẵn sàng hoạt động độc lập hoặc với PostgreSQL)")
+        print("Đang chạy với Hybrid Repository Engine (Sẵn sàng hoạt động độc lập hoặc với PostgreSQL)")
     print("=" * 60)
 
 @app.get("/api/health", tags=["Health"])

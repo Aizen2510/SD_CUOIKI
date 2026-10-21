@@ -1,12 +1,12 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 
 # --- City & Brand ---
 class CityModel(BaseModel):
     id: int
-    name: str = Field(alias="name")
+    name: str
     code: str
-    isPopular: bool = Field(default=False, alias="is_popular")
+    isPopular: bool = Field(default=False, validation_alias=AliasChoices("isPopular", "is_popular"))
 
     class Config:
         populate_by_name = True
@@ -21,14 +21,14 @@ class CineplexBrandModel(BaseModel):
 
 class CinemaTheaterModel(BaseModel):
     id: int
-    brandId: int = Field(alias="brand_id")
-    brandCode: str = Field(alias="brand_code")
+    brandId: int = Field(validation_alias=AliasChoices("brandId", "brand_id"))
+    brandCode: str = Field(validation_alias=AliasChoices("brandCode", "brand_code"))
     name: str
     address: str
-    cityId: int = Field(alias="city_id")
-    cityName: str = Field(default="", alias="city_name")
+    cityId: int = Field(validation_alias=AliasChoices("cityId", "city_id"))
+    cityName: str = Field(default="", validation_alias=AliasChoices("cityName", "city_name"))
     rating: float = 4.8
-    reviewCount: int = Field(default=0, alias="review_count")
+    reviewCount: int = Field(default=0, validation_alias=AliasChoices("reviewCount", "review_count"))
     lat: Optional[float] = None
     lng: Optional[float] = None
 
@@ -39,22 +39,22 @@ class CinemaTheaterModel(BaseModel):
 class MovieModel(BaseModel):
     id: int
     title: str
-    titleEn: Optional[str] = Field(default="", alias="title_en")
-    bannerUrl: str = Field(alias="banner_url")
-    posterUrl: str = Field(alias="poster_url")
-    trailerUrl: Optional[str] = Field(default="", alias="trailer_url")
-    duration: int
-    releaseDate: str = Field(alias="release_date")
-    genre: str
-    ratingPoint: float = Field(default=9.0, alias="rating_point")
-    ratingCount: int = Field(default=0, alias="rating_count")
-    ageRating: str = Field(default="C13", alias="age_rating")
+    titleEn: Optional[str] = Field(default="", validation_alias=AliasChoices("titleEn", "title_en"))
+    bannerUrl: str = Field(default="", validation_alias=AliasChoices("bannerUrl", "banner_url"))
+    posterUrl: str = Field(default="", validation_alias=AliasChoices("posterUrl", "poster_url"))
+    trailerUrl: Optional[str] = Field(default="", validation_alias=AliasChoices("trailerUrl", "trailer_url"))
+    duration: int = 120
+    releaseDate: str = Field(default="", validation_alias=AliasChoices("releaseDate", "release_date"))
+    genre: str = ""
+    ratingPoint: float = Field(default=9.0, validation_alias=AliasChoices("ratingPoint", "rating_point"))
+    ratingCount: int = Field(default=0, validation_alias=AliasChoices("ratingCount", "rating_count"))
+    ageRating: str = Field(default="C13", validation_alias=AliasChoices("ageRating", "age_rating"))
     formats: List[str] = Field(default_factory=lambda: ["2D Phụ đề"])
-    synopsis: str
+    synopsis: str = ""
     director: Optional[str] = ""
-    cast: Optional[str] = Field(default="", alias="cast_members")
+    cast: Optional[str] = Field(default="", validation_alias=AliasChoices("cast", "cast_members"))
     tags: Optional[List[str]] = Field(default_factory=list)
-    isHot: bool = Field(default=False, alias="is_hot")
+    isHot: bool = Field(default=False, validation_alias=AliasChoices("isHot", "is_hot"))
     status: str = "now"
 
     class Config:
@@ -63,16 +63,16 @@ class MovieModel(BaseModel):
 # --- Showtime & Seats ---
 class ShowtimeSlotModel(BaseModel):
     id: str
-    movieId: int = Field(alias="movie_id")
-    theaterId: int = Field(alias="theater_id")
-    time: str = Field(alias="start_time")
-    endTime: str = Field(alias="end_time")
-    date: str = Field(alias="show_date")
-    room: str = Field(alias="room_name")
+    movieId: int = Field(validation_alias=AliasChoices("movieId", "movie_id"))
+    theaterId: int = Field(validation_alias=AliasChoices("theaterId", "theater_id"))
+    time: str = Field(validation_alias=AliasChoices("time", "start_time"))
+    endTime: str = Field(validation_alias=AliasChoices("endTime", "end_time"))
+    date: str = Field(validation_alias=AliasChoices("date", "show_date"))
+    room: str = Field(validation_alias=AliasChoices("room", "room_name"))
     format: str = "2D Phụ đề"
-    price: float = Field(alias="base_price")
-    emptySeats: int = Field(default=90, alias="empty_seats")
-    totalSeats: int = Field(default=96, alias="total_seats")
+    price: float = Field(validation_alias=AliasChoices("price", "base_price"))
+    emptySeats: int = Field(default=90, validation_alias=AliasChoices("emptySeats", "empty_seats"))
+    totalSeats: int = Field(default=96, validation_alias=AliasChoices("totalSeats", "total_seats"))
 
     class Config:
         populate_by_name = True
@@ -100,7 +100,7 @@ class ComboItemModel(BaseModel):
     name: str
     description: str
     price: float
-    image: str = Field(alias="image_url")
+    image: str = Field(default="", validation_alias=AliasChoices("image", "image_url"))
 
     class Config:
         populate_by_name = True
@@ -110,10 +110,10 @@ class PromotionModel(BaseModel):
     code: str
     title: str
     description: Optional[str] = ""
-    discountAmount: float = Field(default=0, alias="discount_amount")
-    discountPercent: int = Field(default=0, alias="discount_percent")
-    maxDiscount: float = Field(default=0, alias="max_discount")
-    minOrder: float = Field(default=0, alias="min_order")
+    discountAmount: float = Field(default=0, validation_alias=AliasChoices("discountAmount", "discount_amount"))
+    discountPercent: int = Field(default=0, validation_alias=AliasChoices("discountPercent", "discount_percent"))
+    maxDiscount: float = Field(default=0, validation_alias=AliasChoices("maxDiscount", "max_discount"))
+    minOrder: float = Field(default=0, validation_alias=AliasChoices("minOrder", "min_order"))
     badge: Optional[str] = ""
 
     class Config:

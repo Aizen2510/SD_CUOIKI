@@ -1,8 +1,3 @@
--- =============================================================================
--- HỆ THỐNG CƠ SỞ DỮ LIỆU ĐẶT VÉ XEM PHIM MEOCINEMA (SD_CUOIKI)
--- HỆ QUẢN TRỊ CƠ SỞ DỮ LIỆU: PostgreSQL 14+
--- TÊN FILE: database.sql
--- =============================================================================
 
 -- 0. KHỞI TẠO EXTENSIONS & SCHEMA
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

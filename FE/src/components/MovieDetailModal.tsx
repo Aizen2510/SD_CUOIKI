@@ -41,8 +41,8 @@ export const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
           }}
         >
           <div className="flex items-center gap-2">
-            <span className={`badge-rate badge-${movie.ageRating.toLowerCase()}`}>
-              {movie.ageRating}
+            <span className={`badge-rate badge-${(movie.ageRating || 'C13').toLowerCase()}`}>
+              {movie.ageRating || 'C13'}
             </span>
             <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--gray-900)' }}>
               {movie.title}

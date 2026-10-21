@@ -283,9 +283,9 @@ export const ScheduleHub: React.FC<ScheduleHubProps> = ({
                       <div className="movie-card-details">
                         <div className="movie-title-row">
                           <span
-                            className={`badge-rate badge-${movie.ageRating.toLowerCase()}`}
+                            className={`badge-rate badge-${(movie.ageRating || 'C13').toLowerCase()}`}
                           >
-                            {movie.ageRating}
+                            {movie.ageRating || 'C13'}
                           </span>
                           <h4
                             className="movie-main-title"

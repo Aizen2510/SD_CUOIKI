@@ -13,6 +13,7 @@ import { LocationModal } from './components/LocationModal';
 import { SearchModal } from './components/SearchModal';
 import { MyTicketsModal } from './components/MyTicketsModal';
 import { ThemeType } from './components/ThemeSwitcher';
+import { DistributedLabModal } from './components/DistributedLabModal';
 import { api } from './services/api';
 
 import {
@@ -80,6 +81,7 @@ function App() {
   const [isLocationModalOpen, setIsLocationModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
   const [isMyTicketsModalOpen, setIsMyTicketsModalOpen] = useState<boolean>(false);
+  const [isDistributedLabOpen, setIsDistributedLabOpen] = useState<boolean>(false);
 
   // Selected movie for detail modal
   const [selectedMovieDetail, setSelectedMovieDetail] = useState<Movie | null>(null);
@@ -125,6 +127,7 @@ function App() {
         onOpenLocationModal={() => setIsLocationModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
         onOpenMyTickets={() => setIsMyTicketsModalOpen(true)}
+        onOpenDistributedLab={() => setIsDistributedLabOpen(true)}
         activeNavTab={activeNavTab}
         onSelectNavTab={setActiveNavTab}
         currentTheme={currentTheme}
@@ -206,6 +209,12 @@ function App() {
       <MyTicketsModal
         isOpen={isMyTicketsModalOpen}
         onClose={() => setIsMyTicketsModalOpen(false)}
+      />
+
+      {/* MODAL 6: Distributed Systems Lab (Chapter 7) */}
+      <DistributedLabModal
+        isOpen={isDistributedLabOpen}
+        onClose={() => setIsDistributedLabOpen(false)}
       />
     </div>
   );
