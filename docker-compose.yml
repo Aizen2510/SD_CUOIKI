@@ -48,6 +48,7 @@ services:
       - -lc
       - |
         if [ -f "$$PGDATA/postgresql-auto-failover.conf" ]; then
+          grep -q "wal_writer_delay = 10ms" "$$PGDATA/postgresql-auto-failover.conf" || printf "\nwal_writer_delay = 10ms\nsynchronous_commit = remote_write\nwal_buffers = 16MB\n" >> "$$PGDATA/postgresql-auto-failover.conf"
           exec pg_autoctl run --pgdata "$$PGDATA"
         fi
         exec pg_autoctl create postgres --ssl-self-signed --auth trust --pg-hba-lan --run
@@ -94,6 +95,8 @@ services:
     container_name: meocinema_backend
     restart: unless-stopped
     command: ["sh", "-c", "python wait_for_db.py && exec uvicorn app.main:app --host 0.0.0.0 --port 5000"]
+    volumes:
+      - ./BE:/app
     ports:
       - "5000:5000"
     environment:

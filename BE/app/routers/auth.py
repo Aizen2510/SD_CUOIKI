@@ -7,8 +7,32 @@ from app.database import get_pg_connection
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication & User Management"])
 
-# Test accounts are seeded in PostgreSQL; fallback starts without hardcoded users.
-IN_MEMORY_USERS: List[Dict[str, Any]] = []
+# 10 tài khoản khách hàng thử nghiệm (dùng chung mật khẩu: MeoTest@2026)
+IN_MEMORY_USERS: List[Dict[str, Any]] = [
+    {
+        "id": i,
+        "email": f"khach{i}@meocinema.test",
+        "phone": f"09010000{i:02d}",
+        "full_name": f"Khách thử nghiệm {i}",
+        "password_hash": h,
+        "salt": s,
+        "role": "customer",
+        "avatar_url": f"https://api.dicebear.com/7.x/bottts/svg?seed=khach{i}",
+        "created_at": "2026-01-01T00:00:00"
+    }
+    for i, (h, s) in enumerate([
+        ("fa9a6d0b042af75d2566f19f1a3b869b1a7a7ee2b816843015fc311d5767efb8", "c0e307a9ee29ea7c8fd1e9bca3976290"),
+        ("c73adc8b7310028467e692d0bffa7e637d03114ac8edd33e9705937b2e10fd12", "00b05ecd80c8d55ee9a1fdda1ea9192b"),
+        ("7ae062884fce25e0b3ef9ba6d7b611da611d60b1459ec8964b724aee904bd58e", "89ead2b46dd2bd3b33254858daaf45ee"),
+        ("e0e8b2d1913dc5a7e3f65bdfda3b604897f54d530aacf9c0e065401a593cb0f8", "f71a24f0e2454af7f1b1de06cbff6b50"),
+        ("cddebaa51a8c0d4f6f2644e7d12057e9fbecae6690bc2810268c7e6b10cfd225", "f746556d2c70090f9e3d97c9dd8c3d08"),
+        ("02a091fe2dc82546e36cc7219d7c2663bef07143b1718d9fbce1c2ab7b88c38e", "2463a39427dfe4c65362963d21260425"),
+        ("ff3163590eb6f11fec53261ee214dab2a15c3b1aeab6ec95b2abeae22a9704d3", "1afce2e2c3af4c7951123acde89ea618"),
+        ("71395bae1a454b888f4d34de80245ad9ecec58b0a2a50f2811ad4eb2f279593b", "c930673aad3c5c8f8866a6f129beba68"),
+        ("70dd860962b3eb4a516d306437035c9261d9c3e05939e33a82404715e3c22f32", "8b40cf777c8d6aba8923ebca9fe4a09e"),
+        ("14cc18f35bf542d433132532877a1fcdaa604f25a5bdb472ff1de1cab8e23570", "d0bea1958fdd0bfaa35701be5221b90a"),
+    ], 1)
+]
 
 def _find_user_by_account(account: str) -> Optional[Dict[str, Any]]:
     account_clean = account.strip().lower()

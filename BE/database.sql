@@ -288,11 +288,19 @@ INSERT INTO rooms (id, theater_id, room_number, format, total_seats) VALUES
 (8, 12, 'Phòng chiếu 1 (NCC)', '2D Phụ đề', 140)
 ON CONFLICT (id) DO NOTHING;
 
--- Tài khoản khách hàng thử nghiệm (mật khẩu được ghi trong README)
+-- Tài khoản khách hàng thử nghiệm (10 tài khoản dùng chung mật khẩu MeoTest@2026)
 INSERT INTO users (email, phone, full_name, password_hash, salt, role) VALUES
-('khach1@meocinema.test', '0901000001', 'Khách thử nghiệm 1', 'ff647de8f537faa0f25de313d5a417feace0dcfb1ccd1aa9fd4bd000249d92d4', '05db95f98cb7d318b42825df33657f6c', 'customer'),
-('khach2@meocinema.test', '0901000002', 'Khách thử nghiệm 2', '5155a09736f7a274a79dbf002d12894d15e3c1e604c78f0290d0b0606475c334', '8beb20e6962002035890d8e35bdfab8f', 'customer'),
-('khach3@meocinema.test', '0901000003', 'Khách thử nghiệm 3', '77614a3e4658bed15b1bf73a17959e3e827ee9201ae71227b039a6d50545cc3a', '124d82a3205b67eb297ed119849c30be', 'customer');
+('khach1@meocinema.test', '0901000001', 'Khách thử nghiệm 1', 'fa9a6d0b042af75d2566f19f1a3b869b1a7a7ee2b816843015fc311d5767efb8', 'c0e307a9ee29ea7c8fd1e9bca3976290', 'customer'),
+('khach2@meocinema.test', '0901000002', 'Khách thử nghiệm 2', 'c73adc8b7310028467e692d0bffa7e637d03114ac8edd33e9705937b2e10fd12', '00b05ecd80c8d55ee9a1fdda1ea9192b', 'customer'),
+('khach3@meocinema.test', '0901000003', 'Khách thử nghiệm 3', '7ae062884fce25e0b3ef9ba6d7b611da611d60b1459ec8964b724aee904bd58e', '89ead2b46dd2bd3b33254858daaf45ee', 'customer'),
+('khach4@meocinema.test', '0901000004', 'Khách thử nghiệm 4', 'e0e8b2d1913dc5a7e3f65bdfda3b604897f54d530aacf9c0e065401a593cb0f8', 'f71a24f0e2454af7f1b1de06cbff6b50', 'customer'),
+('khach5@meocinema.test', '0901000005', 'Khách thử nghiệm 5', 'cddebaa51a8c0d4f6f2644e7d12057e9fbecae6690bc2810268c7e6b10cfd225', 'f746556d2c70090f9e3d97c9dd8c3d08', 'customer'),
+('khach6@meocinema.test', '0901000006', 'Khách thử nghiệm 6', '02a091fe2dc82546e36cc7219d7c2663bef07143b1718d9fbce1c2ab7b88c38e', '2463a39427dfe4c65362963d21260425', 'customer'),
+('khach7@meocinema.test', '0901000007', 'Khách thử nghiệm 7', 'ff3163590eb6f11fec53261ee214dab2a15c3b1aeab6ec95b2abeae22a9704d3', '1afce2e2c3af4c7951123acde89ea618', 'customer'),
+('khach8@meocinema.test', '0901000008', 'Khách thử nghiệm 8', '71395bae1a454b888f4d34de80245ad9ecec58b0a2a50f2811ad4eb2f279593b', 'c930673aad3c5c8f8866a6f129beba68', 'customer'),
+('khach9@meocinema.test', '0901000009', 'Khách thử nghiệm 9', '70dd860962b3eb4a516d306437035c9261d9c3e05939e33a82404715e3c22f32', '8b40cf777c8d6aba8923ebca9fe4a09e', 'customer'),
+('khach10@meocinema.test', '0901000010', 'Khách thử nghiệm 10', '14cc18f35bf542d433132532877a1fcdaa604f25a5bdb472ff1de1cab8e23570', 'd0bea1958fdd0bfaa35701be5221b90a', 'customer')
+ON CONFLICT (email) DO NOTHING;
 
 -- 13.5 Danh sách phim đồng bộ với FE (poster MoMo; trailer chưa xác minh để trống)
 INSERT INTO movies (id, title, title_en, banner_url, poster_url, trailer_url, duration, release_date, genre, rating_point, rating_count, age_rating, formats, synopsis, director, cast_members, tags, is_hot, status) VALUES

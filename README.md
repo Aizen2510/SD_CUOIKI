@@ -11,20 +11,55 @@ Hai cơ chế bổ sung cho nhau: replication sao chép các thay đổi đã co
 
 ```mermaid
 flowchart LR
-    Browser[React :3000] -->|REST| API[FastAPI :5000]
-    API -->|kết nối node read-write hiện tại| Primary[PostgreSQL primary]
-    Primary -->|WAL streaming| Standby1[PostgreSQL standby 1]
-    Primary -->|WAL streaming| Standby2[PostgreSQL standby 2]
-    Monitor[pg_auto_failover monitor] -. theo dõi trạng thái và điều phối failover .-> Primary
-    Monitor -. theo dõi trạng thái và điều phối failover .-> Standby1
-    Monitor -. theo dõi trạng thái và điều phối failover .-> Standby2
-    Dozzle[Dozzle :8080] -. đọc stdout container .-> API
-    Dozzle -. đọc stdout container .-> Primary
-    Dozzle -. đọc stdout container .-> Standby1
-    Dozzle -. đọc stdout container .-> Standby2
+    User[Khách hàng / trình duyệt]
+
+    subgraph Frontend[Frontend — chạy riêng bằng npm]
+        UI[React + TypeScript :3000]
+        LocalData[Dữ liệu mẫu và localStorage]
+        Lab[Distributed Lab]
+        UI -. dự phòng một số dữ liệu giao diện .-> LocalData
+        UI --- Lab
+    end
+
+    subgraph Compose[Docker Compose]
+        API[FastAPI + Uvicorn :5000]
+        Routers[API routers<br/>auth · movies · theaters<br/>showtimes · bookings · promotions]
+        RepAPI[API replication và benchmark]
+        Monitor[pg_auto_failover monitor]
+
+        subgraph Cluster[Cụm PostgreSQL 16]
+            Primary[Primary<br/>đọc và ghi]
+            Standby1[Standby 1]
+            Standby2[Standby 2]
+            Primary -->|WAL streaming replication| Standby1
+            Primary -->|WAL streaming replication| Standby2
+        end
+
+        Dozzle[Dozzle :8080]
+    end
+
+    User --> UI
+    UI -->|HTTP REST / JSON| API
+    API --> Routers
+    API --> RepAPI
+    Routers -->|DATABASE_URL chọn node read-write| Primary
+    RepAPI -->|trạng thái, ghi demo, đối soát| Cluster
+    Monitor -. giám sát và điều phối failover .-> Cluster
+    Dozzle -. đọc stdout/stderr container .-> API
+    Dozzle -.-> Monitor
+    Dozzle -.-> Cluster
 ```
 
-Docker Compose chạy ba PostgreSQL data node, một monitor pg_auto_failover, backend và Dozzle. Frontend chạy riêng bằng npm. Các container nằm trên cùng máy; demo chứng minh hỏng tiến trình/container và failover, không chứng minh chịu được mất cả máy hay mất điện. Monitor là dịch vụ điều phối riêng: khi monitor dừng, PostgreSQL hiện tại vẫn phục vụ và tiếp tục replication nhưng không có quyết định failover tự động mới.
+### Thành phần và cách chúng phối hợp
+
+- **Frontend:** React và TypeScript hiển thị giao diện đặt vé, gọi backend qua HTTP REST/JSON. Một số danh mục có dữ liệu mẫu dự phòng; thông tin giao diện như phiên đăng nhập và trạng thái ghế cục bộ có thể được giữ trong `localStorage`.
+- **Backend:** FastAPI chạy bằng Uvicorn, cung cấp API cho đăng nhập, phim, rạp, suất chiếu, combo, khuyến mãi và booking. Router xử lý nghiệp vụ và truy cập dữ liệu PostgreSQL bằng `psycopg2`.
+- **Cụm dữ liệu:** ba PostgreSQL node có một primary nhận ghi và hai standby nhận WAL từ primary. Backend nhận danh sách ba host trong `DATABASE_URL`; `target_session_attrs=read-write` giúp kết nối tới node hiện giữ quyền ghi.
+- **Điều phối:** `pg_auto_failover` monitor theo dõi trạng thái data nodes và điều phối promote standby khi primary gặp sự cố. Sau khi vai trò node đổi, backend có thể kết nối lại qua danh sách host để tìm primary mới.
+- **Distributed Lab:** giao diện gọi các endpoint demo ở backend để xem trạng thái/LSN node, ghi event, đối soát replication và chạy benchmark đặt vé đồng thời. Các kiểm tra replication này truy cập cụm PostgreSQL thật.
+- **Quan sát log:** Dozzle đọc stdout/stderr của các container qua Docker socket ở chế độ chỉ đọc; nó dùng để xem log backend, PostgreSQL và monitor, không phải thành phần lưu dữ liệu nghiệp vụ.
+
+Khi chạy, Docker Compose khởi động backend, monitor, ba data nodes và Dozzle; frontend được khởi chạy riêng bằng npm. Luồng đặt vé đi từ trình duyệt qua API đến PostgreSQL primary. Sau khi transaction được commit, PostgreSQL truyền WAL tới standby. Nếu primary dừng, monitor điều phối đổi vai trò và backend tìm node read-write mới qua cấu hình nhiều host. Các container trong bản demo cùng chạy trên một máy, nên kịch bản minh họa lỗi node/container và failover, không chứng minh khả năng chịu mất cả máy. Nếu monitor dừng, các node PostgreSQL hiện tại vẫn có thể tiếp tục hoạt động và replication, nhưng không có monitor để điều phối failover tự động mới.
 
 Các thao tác đặt/hoàn vé và phần kiểm tra replication đều dùng PostgreSQL thật. Trong kịch bản đặt ghế, ràng buộc duy nhất ở database là lớp bảo vệ cuối cùng khi request đến đồng thời. Hoàn vé trước giờ chiếu chạy trong transaction, đánh dấu vé đã hoàn và giải phóng ghế; sau giờ chiếu bị từ chối. Cổng thanh toán thật chưa tích hợp, nên “hoàn tiền” là trạng thái nghiệp vụ trong ứng dụng.
 
@@ -132,17 +167,42 @@ Thoát psql bằng `\\q`.
 
 ## Tài khoản thử nghiệm
 
-Dùng ba tài khoản khách hàng được tạo trong PostgreSQL sau khi khởi tạo/reset database. Cả ba dùng mật khẩu `MeoTest@2026`; có thể đăng nhập bằng email hoặc số điện thoại. Ba tài khoản phù hợp mở ba phiên riêng để thử đặt cùng một ghế. Không có tài khoản nào được điền sẵn ở màn hình đăng nhập.
+Hệ thống cung cấp 10 tài khoản khách hàng thử nghiệm được tạo sẵn trong PostgreSQL và bộ nhớ backend. Tất cả 10 tài khoản đều dùng chung mật khẩu `MeoTest@2026`; có thể đăng nhập bằng email hoặc số điện thoại:
 
-| Người dùng | Email | Số điện thoại | Mật khẩu |
+| Người dùng | Email đăng nhập | Số điện thoại | Mật khẩu |
 |---|---|---|---|
 | Khách thử nghiệm 1 | `khach1@meocinema.test` | `0901000001` | `MeoTest@2026` |
 | Khách thử nghiệm 2 | `khach2@meocinema.test` | `0901000002` | `MeoTest@2026` |
 | Khách thử nghiệm 3 | `khach3@meocinema.test` | `0901000003` | `MeoTest@2026` |
+| Khách thử nghiệm 4 | `khach4@meocinema.test` | `0901000004` | `MeoTest@2026` |
+| Khách thử nghiệm 5 | `khach5@meocinema.test` | `0901000005` | `MeoTest@2026` |
+| Khách thử nghiệm 6 | `khach6@meocinema.test` | `0901000006` | `MeoTest@2026` |
+| Khách thử nghiệm 7 | `khach7@meocinema.test` | `0901000007` | `MeoTest@2026` |
+| Khách thử nghiệm 8 | `khach8@meocinema.test` | `0901000008` | `MeoTest@2026` |
+| Khách thử nghiệm 9 | `khach9@meocinema.test` | `0901000009` | `MeoTest@2026` |
+| Khách thử nghiệm 10 | `khach10@meocinema.test` | `0901000010` | `MeoTest@2026` |
+
+> **Cách chứng minh tài khoản nhận vé trong Kịch bản 3:**
+> Khi chạy kịch bản 3 với 10 clients tranh mua ghế, nếu client nào thắng (ví dụ Khách thử nghiệm 5), bạn chỉ cần mở trình duyệt, đăng nhập đúng tài khoản `khach5@meocinema.test` (mật khẩu `MeoTest@2026`), sau đó vào mục **"Vé của tôi"** để chứng minh vé vừa mua đã được lưu chính xác vào tài khoản của khách hàng đó.
 
 Database hiện đã được reset: 23 phim, 13 suất chiếu, 3 tài khoản, không có booking mẫu hay ghế bị chiếm. Phim dùng poster từ danh sách MoMo của giao diện; trailer placeholder đã bỏ, trailer không có link phù hợp để trống.
 
-Muốn reset lại toàn bộ database, trước tiên xem primary bằng `pg_autoctl show state`, rồi chạy lệnh sau với tên service primary. Lệnh này xóa schema và booking hiện có, sau đó nạp lại dữ liệu ban đầu:
+### Cách 1: Reset nhanh — Chỉ xóa dữ liệu vé, GIỮ LẠI CÁC TÀI KHOẢN (Khuyên dùng)
+Dùng script tự động tìm Primary và làm sạch dữ liệu đặt vé phát sinh, giữ nguyên toàn bộ 3 tài khoản khách hàng và danh mục phim:
+
+```bash
+./scripts/reset_db_keep_accounts.sh
+```
+
+Hoặc chạy lệnh SQL trực tiếp trên node Primary hiện tại:
+
+```bash
+docker compose exec -T pg-node2 psql -U postgres -d meocinema_db -c "TRUNCATE TABLE booking_combos, booking_seats, bookings RESTART IDENTITY CASCADE; DROP TABLE IF EXISTS replication_demo_events;"
+```
+*(Thay `pg-node2` bằng node đang là primary)*
+
+### Cách 2: Reset toàn bộ nạp lại từ đầu
+Nếu muốn xóa toàn bộ schema và nạp lại từ đầu từ file SQL:
 
 ```bash
 docker compose exec -T pg-node2 psql -U postgres -d meocinema_db < BE/database.sql
@@ -160,36 +220,96 @@ Thay `pg-node2` bằng primary hiện tại nếu vai trò đã đổi.
 4. Vào **Vé của tôi** bằng tài khoản thắng, xem thời gian đặt và chi tiết vé, rồi bấm **Hoàn vé** trước giờ chiếu.
 5. Xác nhận vé chuyển sang **Đã hoàn tiền**, dòng giữ ghế được xóa, ghế xuất hiện lại trên sơ đồ và có thể đặt tiếp. Sau giờ chiếu, backend từ chối hoàn vé.
 
-## Kịch bản 2 — Replication thật và failover một node
+## Kịch bản 2 — Replication thật và Tự động Failover khi Node gặp sự cố
 
-Ba data node dùng PostgreSQL physical streaming replication do pg_auto_failover quản lý. Tab **PostgreSQL replication thật** hiển thị role, WAL LSN và trạng thái online bằng cách truy vấn trực tiếp từng node.
+Cụm database gồm 3 data nodes sử dụng **PostgreSQL Physical Streaming Replication** kết hợp **pg_auto_failover** và một node giám sát độc lập (`pg-monitor`).
+Tab **PostgreSQL replication thật** (trong modal *Distributed Lab*) hiển thị role, WAL LSN và trạng thái online/offline bằng cách truy vấn trực tiếp từng node theo thời gian thực.
 
-1. Đợi trạng thái hiện một primary và hai standby.
-2. Bấm **Ghi bản ghi demo vào Primary**, rồi **Kiểm tra trên các node**. Event ID cần được tìm thấy trên cả ba node.
-3. Xem primary hiện tại trong Lab. Dừng đúng service đó từ terminal, ví dụ:
+> ⚠️ **QUY TẮC CỐT LÕI (QUORUM RULE):**
+> - Cụm 3 node hoạt động theo nguyên tắc đa số (Quorum: cần tối thiểu 2/3 node sống).
+> - Khi diễn tập Failover, **CHỈ ĐƯỢC TẮT DUY NHẤT 1 NODE ĐANG LÀ PRIMARY**.
+> - **Tuyệt đối không tắt cả 3 node cùng lúc**, vì nếu tắt cả 3 node thì toàn bộ cluster bị sập (Outage), không còn server nào để failover sang. (Nếu lỡ tắt cả 3, chạy: `docker compose start pg-node1 pg-node2 pg-node3` để khởi động lại).
 
-   ```bash
-   docker compose stop pg-node1
-   ```
+---
 
-   Thay `pg-node1` bằng primary đang hiển thị. Đây là lỗi container thật; monitor sẽ chờ timeout an toàn rồi promote standby đủ điều kiện. Trong thời gian chuyển vai trò, một số request có thể tạm lỗi.
-4. Đợi tab Lab hiện primary mới. Kiểm tra lại Event ID và bấm ghi một event mới để xác nhận backend đã tìm primary mới.
-5. Bật lại node cũ bằng lệnh Lab cung cấp hoặc:
+### Các bước thực hiện chi tiết
 
-   ```bash
-   docker compose start pg-node1
-   ```
+#### Bước 1: Kiểm tra trạng thái cụm trước diễn tập
+Chạy lệnh kiểm tra từ Monitor:
+```bash
+docker compose exec pg-monitor pg_autoctl show state --pgdata /var/lib/postgres/pgaf
+```
+Hoặc mở giao diện web (`http://localhost:3000`) -> bấm **Distributed Lab (Chương 7)** -> chọn tab **PostgreSQL replication thật**.
+Xác định node nào đang giữ vai trò **`primary`** (ví dụ: `pg-node3` hoặc `pg-node1`). Hai node còn lại sẽ có vai trò **`secondary`**.
 
-   Thay bằng node đã dừng, rồi đợi node đó tái gia nhập dưới vai trò standby. `pg_autoctl show state` và trạng thái trong Lab phải trở lại một primary, hai secondary.
+---
 
-PostgreSQL được cấu hình synchronous replication với một standby khi đủ điều kiện, giúp tránh xác nhận commit chưa được standby đồng bộ trong trạng thái bình thường, đổi lại có thể tăng độ trễ hoặc tạm chặn ghi nếu không còn standby đủ điều kiện. Failover không thể bảo đảm giữ một giao dịch chưa được xác nhận; không nên suy diễn khả năng chịu lỗi của cụm demo cùng máy thành cấu hình production.
+#### Bước 2: Thử nghiệm ghi dữ liệu và đồng bộ Replication (Sync check)
+Bấm **"Ghi bản ghi demo vào Primary"** trên giao diện Lab, rồi bấm **"Kiểm tra trên các node"**.
+Hoặc chạy lệnh từ terminal:
+```bash
+curl -s -X POST http://localhost:5000/api/distributed/replication/real/demo-write \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Kiem tra ghi replication truoc khi failover"}'
+```
+*Kết quả:* Event ID và WAL LSN xuất hiện đồng nhất trên cả 3 nodes (Node Primary xác nhận sau khi Standby đã nhận WAL).
+
+---
+
+#### Bước 3: Giả lập sự cố chết Node Primary (Simulate Primary Crash)
+Tắt đúng container của Node đang là Primary (ví dụ nếu `pg-node3` đang là primary):
+```bash
+docker compose stop pg-node3
+```
+*(Nếu primary là `pg-node1` thì thay bằng `pg-node1`)*.
+
+---
+
+#### Bước 4: Quan sát Monitor tự động bầu chọn Primary mới (Automatic Failover)
+Chờ khoảng 5-10 giây để monitor phát hiện heartbeat timeout, sau đó kiểm tra lại trạng thái:
+```bash
+docker compose exec pg-monitor pg_autoctl show state --pgdata /var/lib/postgres/pgaf
+```
+**Cơ chế diễn ra:**
+1. Node bị tắt chuyển sang trạng thái mất kết nối `read-write !` -> `demote_timeout` -> `demoted`.
+2. `pg-monitor` tự động chọn Standby có LSN mới nhất (ví dụ `pg-node2`) và cấp lệnh `prepare_promotion` -> `primary`.
+3. Standby được promote chính thức thành **Primary mới** (mở cổng ghi).
+4. Backend và giao diện web tự động định tuyến các giao dịch ghi mới vào Primary mới mà không cần can thiệp thủ công (Zero Downtime / Zero Manual Intervention).
+
+---
+
+#### Bước 5: Hồi sinh Node cũ (Node Recovery & Re-join)
+Khởi động lại container vừa bị tắt:
+```bash
+docker compose start pg-node3
+```
+Chờ 3-5 giây và kiểm tra lại:
+```bash
+docker compose exec pg-monitor pg_autoctl show state --pgdata /var/lib/postgres/pgaf
+```
+**Kết quả:**
+- Node cũ tự động kết nối lại vào cụm dưới vai trò **`secondary` (standby)**.
+- `pg_autoctl` thực hiện `catchingup` để đồng bộ bù toàn bộ WAL logs phát sinh trong lúc node bị tắt.
+- Cụm phục hồi về trạng thái chuẩn hoàn hảo: **1 Primary mới + 2 Secondary**, LSN giữa các node tiếp tục đồng nhất.
+
+---
+
+### Bảng tra cứu lệnh nhanh cho Kịch bản 2
+
+| Mục tiêu thao tác | Lệnh thực thi |
+| :--- | :--- |
+| **Xem trạng thái chi tiết 3 node** | `docker compose exec pg-monitor pg_autoctl show state --pgdata /var/lib/postgres/pgaf` |
+| **Ghi thử 1 event replication** | `curl -s -X POST http://localhost:5000/api/distributed/replication/real/demo-write -H "Content-Type: application/json" -d '{"message": "Test"}'` |
+| **Giả lập chết Primary** | `docker compose stop <node-primary>` *(ví dụ `docker compose stop pg-node3`)* |
+| **Bật lại Primary đã dừng** | `docker compose start <node-primary>` *(ví dụ `docker compose start pg-node3`)* |
+| **Cứu hộ (khi lỡ tắt cả 3 node)** | `docker compose start pg-node1 pg-node2 pg-node3` |
+
+---
 
 ### Hai kiểu replica khi primary gặp lỗi
 
-- **Ghi đồng bộ:** primary chỉ xác nhận commit sau khi ít nhất một standby xác nhận đã nhận WAL. Độ trễ tăng; nếu standby cần thiết không khả dụng, ghi có thể chờ hoặc lỗi.
-- **Đọc từ replica:** standby có thể phục vụ truy vấn đọc, nhưng dữ liệu có thể trễ so với primary. Với thao tác cần đọc ngay booking vừa ghi, ứng dụng cần đọc từ primary hoặc dùng chính sách read-your-writes.
-
-Trong demo này, booking dùng primary để tránh quyết định chỗ dựa trên bản đọc trễ. Lab kiểm tra replication bằng cách đọc trực tiếp từng node.
+- **Ghi đồng bộ (Synchronous Replication):** Primary chỉ xác nhận commit sau khi ít nhất một standby xác nhận đã nhận WAL. Đổi lại độ an toàn dữ liệu tuyệt đối (RPO = 0), tránh mất dữ liệu khi failover.
+- **Đọc từ replica (Read-Your-Writes):** Standby phục vụ truy vấn đọc. Với các nghiệp vụ đặt vé quan trọng, backend MeoCinema đảm bảo tính nhất quán Đọc-sau-Ghi (Read-Your-Writes) để tránh đọc phải dữ liệu trễ (Stale Read).
 
 ## Kịch bản 3 — Bão đặt vé đồng thời và nhất quán sao chép trên cụm
 

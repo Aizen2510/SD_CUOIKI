@@ -380,6 +380,29 @@ export const DistributedLabModal: React.FC<DistributedLabModalProps> = ({ isOpen
               {/* KẾT QUẢ SAU KHI CHẠY BENCHMARK */}
               {benchmarkResult && (
                 <div className="space-y-5 animate-in fade-in duration-300">
+                  {/* BANNER SUẤT CHIẾU HỢP LỆ (CHƯA QUA GIỜ) & THÔNG TIN VÉ */}
+                  {benchmarkResult.showtime_info && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-700/60 bg-gradient-to-r from-amber-950/40 to-slate-900 p-3.5 text-xs text-amber-200">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded bg-emerald-900/70 px-2 py-0.5 font-bold text-emerald-300 border border-emerald-700/70">
+                          ✓ SUẤT CHIẾU HỢP LỆ (CHƯA QUA GIỜ)
+                        </span>
+                        <span>Phim: <b>{benchmarkResult.showtime_info.movie_title}</b></span>
+                        <span className="text-slate-400">·</span>
+                        <span>Suất: <b>{benchmarkResult.showtime_info.show_time} ngày {benchmarkResult.showtime_info.show_date}</b></span>
+                        <span className="text-slate-400">·</span>
+                        <span>Rạp: <b>{benchmarkResult.showtime_info.cinema_name}</b></span>
+                      </div>
+                      {benchmarkResult.winner && (
+                        <div className="flex items-center gap-2">
+                          <span>Mã vé: <code className="rounded bg-slate-950 px-2 py-0.5 font-bold text-amber-300 border border-slate-700">{benchmarkResult.winner.booking_code}</code></span>
+                          <span className="text-slate-400">·</span>
+                          <span>Người nhận: <b className="text-white">{benchmarkResult.winner.customer}</b></span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* 3 THỐNG KÊ TỔNG QUAN */}
                   <div className="grid gap-3 sm:grid-cols-3">
                     {/* CARD 1: TRANSACTION CONSISTENCY */}

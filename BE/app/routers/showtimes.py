@@ -85,16 +85,31 @@ def get_seats_for_showtime(showtime_id: str):
         if conn:
             try:
                 with conn.cursor() as cur:
+                    cur.execute("SELECT room_name, format, base_price FROM showtimes WHERE id = %s", (showtime_id,))
+                    st_row = cur.fetchone()
+                    if st_row:
+                        room_name = st_row.get("room_name") or room_name
+                        show_format = st_row.get("format") or show_format
+                        if st_row.get("base_price"):
+                            base_price = float(st_row["base_price"])
+
                     cur.execute("SELECT seat_code FROM booking_seats WHERE showtime_id = %s", (showtime_id,))
                     rows = cur.fetchall()
-                    reserved_set = {r["seat_code"] for r in rows}
+                    for r in rows:
+                        sc = str(r["seat_code"]).strip().upper()
+                        reserved_set.add(sc)
+                        clean_sc = sc.replace("VIP-", "").replace("SWEETBOX-", "")
+                        reserved_set.add(clean_sc)
             except Exception as e:
                 print(f"[SEATS ROUTER] PG error: {e}")
             finally:
                 conn.close()
 
     # Merge with in-memory map
-    reserved_set.update(RESERVED_SEATS_MAP.get(showtime_id, set()))
+    for sc in RESERVED_SEATS_MAP.get(showtime_id, set()):
+        sc_str = str(sc).strip().upper()
+        reserved_set.add(sc_str)
+        reserved_set.add(sc_str.replace("VIP-", "").replace("SWEETBOX-", ""))
 
     # Generate standard theater seat layout (Rows A to H, Cols 1 to 12)
     rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
