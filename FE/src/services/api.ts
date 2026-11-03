@@ -407,6 +407,35 @@ export const api = {
     return data;
   },
 
+  async runConcurrentBenchmark(concurrency: number = 10, seatCode: string = 'VIP-F8', showtimeId?: string): Promise<any> {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/replication/real/benchmark/concurrent-booking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        concurrency,
+        seat_code: seatCode,
+        showtime_id: showtimeId || undefined
+      })
+    }, 20000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Lỗi chạy kiểm thử tranh ghế đồng thời.');
+    return data;
+  },
+
+  async cleanupBenchmarkSeat(seatCode: string = 'VIP-F8', showtimeId?: string): Promise<any> {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/replication/real/benchmark/cleanup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seat_code: seatCode,
+        showtime_id: showtimeId || undefined
+      })
+    }, 10000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Lỗi giải phóng ghế thử nghiệm.');
+    return data;
+  },
+
   // =============================================================================
   // AUTHENTICATION & USER MANAGEMENT
   // =============================================================================

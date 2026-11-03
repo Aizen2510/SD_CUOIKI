@@ -191,6 +191,48 @@ PostgreSQL được cấu hình synchronous replication với một standby khi 
 
 Trong demo này, booking dùng primary để tránh quyết định chỗ dựa trên bản đọc trễ. Lab kiểm tra replication bằng cách đọc trực tiếp từng node.
 
+## Kịch bản 3 — Bão đặt vé đồng thời và nhất quán sao chép trên cụm
+
+Kịch bản này tích hợp và chứng minh đồng thời cả hai thuộc tính sống còn của hệ phân tán: **Transaction Consistency (ACID / Linearizability)** khi có nhiều request tranh chấp cùng lúc và **Replication Consistency (Read-Your-Writes)** trên toàn bộ cụm PostgreSQL.
+
+### Cách thức hoạt động
+
+1. **Transaction Consistency (Nhất quán giao dịch / Chống Double-Booking):**
+   - Hệ thống mô phỏng $N$ khách hàng (5, 10, hoặc 20 clients) cùng lúc bấm xác nhận đặt đúng một ghế VIP (ví dụ `VIP-F8`) tại cùng một microsecond.
+   - Các thread được đồng bộ hóa bằng `Barrier` và gửi đồng thời đến Primary.
+   - Nhờ ràng buộc duy nhất trong PostgreSQL `UNIQUE (showtime_id, seat_code)` và mức cô lập giao dịch, database chỉ cho phép **đúng 1 request commit thành công (200 OK)**.
+   - $N - 1$ requests còn lại ngay lập tức bị lỗi xung đột khóa duy nhất, nhận mã lỗi `409 Conflict` và toàn bộ transaction được rollback an toàn.
+   - Số lượng ghế bán vượt quá (Overbooking) bằng 0 tuyệt đối.
+
+2. **Replication Consistency & Read-Your-Writes (Nhất quán sao chép trên cụm):**
+   - Ngay sau khi transaction thắng cuộc được commit trên Primary, backend truy vấn đối soát tức thời trực tiếp trên tất cả các node trong cụm (`pg-node1`, `pg-node2`, `pg-node3`).
+   - Kiểm tra mã vé và trạng thái ghế `VIP-F8` trên từng node kèm WAL/Replay LSN. Cả 3 node đều phản ánh trạng thái đã giữ ghế và mã vé trùng khớp 100%.
+   - Thử nghiệm đọc sau ghi: Thực hiện truy vấn đọc chi tiết vé trực tiếp từ một **Standby Replica**. Khách hàng nhận được đầy đủ thông tin vé hợp lệ của mình mà không bị mất dữ liệu hay đọc phải bản ghi cũ (Stale Read).
+
+### Cách thực hiện demo
+
+**Cách 1: Trực quan trên Giao diện Web (Distributed Lab Modal)**
+1. Nhấn tổ hợp phím **Ctrl + Shift + L** để mở cửa sổ **Distributed Lab**.
+2. Chọn tab **Kịch bản 3: Tranh ghế & Nhất quán sao chép**.
+3. Chọn số lượng clients đồng thời (5, 10, hoặc 20 requests) và mã ghế thử nghiệm (mặc định `VIP-F8`).
+4. Bấm **Chạy kiểm thử (10 requests)**:
+   - Xem thống kê giao dịch: 1 Thắng (200 OK), 9 Xung đột (409 Conflict).
+   - Xem bảng đối soát 3 node: Cả `pg-node1`, `pg-node2`, `pg-node3` đều báo `ĐỒNG BỘ 100%`.
+   - Xem khối xác nhận **Read-Your-Writes Consistency** đọc từ Standby replica.
+5. Bấm **Dọn dẹp ghế** để giải phóng ghế thử nghiệm và chạy lại kịch bản bao nhiêu lần tùy thích.
+
+**Cách 2: Chạy trực tiếp qua dòng lệnh Terminal (CLI)**
+```bash
+# Chạy với 10 clients mặc định tranh ghế VIP-F8
+python3 scripts/demo_concurrency_replication.py
+
+# Hoặc tùy chỉnh 20 clients tranh ghế VIP-G8
+python3 scripts/demo_concurrency_replication.py --concurrency 20 --seat VIP-G8
+
+# Giải phóng ghế sau khi test
+python3 scripts/demo_concurrency_replication.py --cleanup --seat VIP-G8
+```
+
 ## API cho kịch bản replication
 
 | Mục đích | Endpoint |
@@ -198,6 +240,8 @@ Trong demo này, booking dùng primary để tránh quyết định chỗ dựa 
 | Vai trò, trạng thái và LSN của từng PostgreSQL node | `GET /api/distributed/replication/real/status` |
 | Tạo event thật qua primary | `POST /api/distributed/replication/real/demo-write` |
 | Đọc event ID trực tiếp trên mỗi node | `GET /api/distributed/replication/real/verify/{event_id}` |
+| Chạy kịch bản bão request tranh ghế & đối soát replication | `POST /api/distributed/replication/real/benchmark/concurrent-booking` |
+| Dọn dẹp / giải phóng ghế sau khi benchmark | `POST /api/distributed/replication/real/benchmark/cleanup` |
 
 Các log container ở Dozzle/stdout khác với những endpoint log simulator còn lại của backend.
 
