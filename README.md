@@ -23,18 +23,16 @@ flowchart LR
 
     subgraph Compose[Docker Compose]
         API[FastAPI + Uvicorn :5000]
-        Routers[API routers<br/>auth · movies · theaters<br/>showtimes · bookings · promotions]
+        Routers[API routers<br/>auth · movies · theaters<br/>showtimes · bookings · promotions<br/>DB: multi-host, read-write selection]
         RepAPI[API replication và benchmark]
-        Monitor[pg_auto_failover monitor]
 
-        subgraph Cluster[Cụm PostgreSQL 16]
-            Primary[Primary<br/>đọc và ghi]
-            Standby1[Standby 1]
-            Standby2[Standby 2]
-            Primary -->|WAL streaming replication| Standby1
-            Primary -->|WAL streaming replication| Standby2
+        subgraph Cluster[Cụm PostgreSQL 16 — ba data node, WAL từ Primary hiện tại tới hai Standby]
+            Node1[pg-node1<br/>Primary hoặc Standby]
+            Node2[pg-node2<br/>Primary hoặc Standby]
+            Node3[pg-node3<br/>Primary hoặc Standby]
         end
 
+        Monitor[pg-monitor<br/>pg_auto_failover]
         Dozzle[Dozzle :8080]
     end
 
@@ -42,9 +40,15 @@ flowchart LR
     UI -->|HTTP REST / JSON| API
     API --> Routers
     API --> RepAPI
-    Routers -->|DATABASE_URL chọn node read-write| Primary
-    RepAPI -->|trạng thái, ghi demo, đối soát| Cluster
-    Monitor -. giám sát và điều phối failover .-> Cluster
+    Routers --> Node1
+    Routers --> Node2
+    Routers --> Node3
+    RepAPI -->|trạng thái, ghi demo, đối soát| Node1
+    RepAPI --> Node2
+    RepAPI --> Node3
+    Monitor -. giám sát và điều phối vai trò .-> Node1
+    Monitor -. giám sát và điều phối vai trò .-> Node2
+    Monitor -. giám sát và điều phối vai trò .-> Node3
     Dozzle -. đọc stdout/stderr container .-> API
     Dozzle -.-> Monitor
     Dozzle -.-> Cluster
@@ -54,12 +58,24 @@ flowchart LR
 
 - **Frontend:** React và TypeScript hiển thị giao diện đặt vé, gọi backend qua HTTP REST/JSON. Một số danh mục có dữ liệu mẫu dự phòng; thông tin giao diện như phiên đăng nhập và trạng thái ghế cục bộ có thể được giữ trong `localStorage`.
 - **Backend:** FastAPI chạy bằng Uvicorn, cung cấp API cho đăng nhập, phim, rạp, suất chiếu, combo, khuyến mãi và booking. Router xử lý nghiệp vụ và truy cập dữ liệu PostgreSQL bằng `psycopg2`.
-- **Cụm dữ liệu:** ba PostgreSQL node có một primary nhận ghi và hai standby nhận WAL từ primary. Backend nhận danh sách ba host trong `DATABASE_URL`; `target_session_attrs=read-write` giúp kết nối tới node hiện giữ quyền ghi.
-- **Điều phối:** `pg_auto_failover` monitor theo dõi trạng thái data nodes và điều phối promote standby khi primary gặp sự cố. Sau khi vai trò node đổi, backend có thể kết nối lại qua danh sách host để tìm primary mới.
+- **Cụm dữ liệu:** `pg-node1`, `pg-node2` và `pg-node3` là ba PostgreSQL data node. Tại mỗi thời điểm, một node giữ vai trò primary nhận ghi; hai node còn lại là standby nhận WAL. Vai trò cụ thể có thể đổi sau failover.
+- **Điều phối:** `pg-monitor` chạy `pg_auto_failover`, theo dõi cả ba data node và điều phối promote một standby khi primary gặp sự cố. Backend nhận danh sách cả ba host trong `DATABASE_URL`; `target_session_attrs=read-write` giúp tìm node hiện giữ quyền ghi sau khi vai trò đổi.
 - **Distributed Lab:** giao diện gọi các endpoint demo ở backend để xem trạng thái/LSN node, ghi event, đối soát replication và chạy benchmark đặt vé đồng thời. Các kiểm tra replication này truy cập cụm PostgreSQL thật.
 - **Quan sát log:** Dozzle đọc stdout/stderr của các container qua Docker socket ở chế độ chỉ đọc; nó dùng để xem log backend, PostgreSQL và monitor, không phải thành phần lưu dữ liệu nghiệp vụ.
 
 Khi chạy, Docker Compose khởi động backend, monitor, ba data nodes và Dozzle; frontend được khởi chạy riêng bằng npm. Luồng đặt vé đi từ trình duyệt qua API đến PostgreSQL primary. Sau khi transaction được commit, PostgreSQL truyền WAL tới standby. Nếu primary dừng, monitor điều phối đổi vai trò và backend tìm node read-write mới qua cấu hình nhiều host. Các container trong bản demo cùng chạy trên một máy, nên kịch bản minh họa lỗi node/container và failover, không chứng minh khả năng chịu mất cả máy. Nếu monitor dừng, các node PostgreSQL hiện tại vẫn có thể tiếp tục hoạt động và replication, nhưng không có monitor để điều phối failover tự động mới.
+
+### Luồng hoạt động và công dụng các thành phần
+
+1. **Người dùng và frontend:** Khách truy cập giao diện React/TypeScript trên cổng `3000`. Frontend hiển thị phim, lịch chiếu và các bước đặt vé; khi cần dữ liệu, frontend gửi yêu cầu HTTP REST/JSON tới backend. Một số dữ liệu mẫu và trạng thái giao diện được lưu ở trình duyệt để làm dữ liệu dự phòng hoặc giữ trạng thái giữa các lần tải trang.
+2. **Backend API:** FastAPI trên cổng `5000` nhận yêu cầu từ frontend. Các router phụ trách từng nhóm chức năng như đăng nhập, phim, rạp, suất chiếu, booking, combo và khuyến mãi. Backend xử lý nghiệp vụ rồi dùng `psycopg2` để đọc hoặc ghi dữ liệu PostgreSQL.
+3. **PostgreSQL Primary và Standby:** Cụm có ba node `pg-node1`, `pg-node2`, `pg-node3`. Tại một thời điểm, một node là Primary để nhận ghi; hai node còn lại là Standby để nhận bản sao dữ liệu. Backend có cấu hình nhiều host và `target_session_attrs=read-write` để kết nối node hiện có quyền ghi.
+4. **WAL streaming replication:** Khi transaction được commit trên Primary, PostgreSQL truyền WAL tới các Standby để cập nhật bản sao. Replication giúp duy trì nhiều bản dữ liệu và cho phép kiểm tra dữ liệu đã tới các node hay chưa.
+5. **pg_auto_failover monitor:** `pg-monitor` theo dõi trạng thái của ba node và điều phối chuyển một Standby thành Primary khi Primary gặp sự cố. Backend dùng lại danh sách host để kết nối tới node đang nhận ghi sau khi vai trò thay đổi.
+6. **Distributed Lab:** Giao diện lab gọi các API demo của backend để xem trạng thái/LSN, ghi event thử nghiệm, đối soát dữ liệu trên từng node và chạy benchmark nhiều yêu cầu đặt cùng ghế. Lab giúp quan sát hoạt động của cụm PostgreSQL thật.
+7. **Dozzle:** Dozzle đọc log stdout/stderr của các container để theo dõi backend, PostgreSQL và monitor khi chạy demo hoặc tìm lỗi. Dozzle chỉ phục vụ quan sát, không lưu dữ liệu nghiệp vụ.
+
+Backend, monitor, PostgreSQL và Dozzle được khởi chạy bằng Docker Compose; frontend chạy riêng bằng npm. Trong cấu hình demo, các container nằm trên cùng một máy, nên việc failover mô phỏng sự cố node/container chứ không mô phỏng mất toàn bộ máy chủ.
 
 Các thao tác đặt/hoàn vé và phần kiểm tra replication đều dùng PostgreSQL thật. Trong kịch bản đặt ghế, ràng buộc duy nhất ở database là lớp bảo vệ cuối cùng khi request đến đồng thời. Hoàn vé trước giờ chiếu chạy trong transaction, đánh dấu vé đã hoàn và giải phóng ghế; sau giờ chiếu bị từ chối. Cổng thanh toán thật chưa tích hợp, nên “hoàn tiền” là trạng thái nghiệp vụ trong ứng dụng.
 
