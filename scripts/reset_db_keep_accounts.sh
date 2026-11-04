@@ -30,7 +30,7 @@ echo -e "${YELLOW}🔍 Đang xác định node PostgreSQL Primary hiện tại..
 PRIMARY_NODE=""
 
 if docker compose ps pg-monitor 2>/dev/null | grep -q "Up"; then
-    PRIMARY_NODE=$(docker compose exec -T pg-monitor pg_autoctl show state --pgdata /var/lib/postgres/pgaf 2>/dev/null | awk '$6 == "primary" {print $4}' | head -n 1)
+    PRIMARY_NODE=$(docker compose exec -T pg-monitor pg_autoctl show state --pgdata /var/lib/postgres/pgaf 2>/dev/null | grep -i "primary.*primary" | awk -F'|' '{print $3}' | awk -F':' '{gsub(/[[:space:]]/, "", $1); print $1}' | head -n 1)
 fi
 
 # Fallback nếu không parse được qua pg_autoctl

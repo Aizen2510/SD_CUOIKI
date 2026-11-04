@@ -821,36 +821,7 @@ PROMOTIONS_DATA = [
 ]
 
 # In-memory bookings store
-BOOKINGS_STORE: List[Dict[str, Any]] = [
-    {
-        "id": 1,
-        "booking_code": "MEO-849201",
-        "customer_name": "Nguyễn Văn An",
-        "customer_phone": "0987654321",
-        "customer_email": "an.nguyen@gmail.com",
-        "showtime_id": "st-cgv-lm81-1-2030",
-        "seat_count": 2,
-        "seat_numbers": ["E6", "E7"],
-        "seat_total": 330000,
-        "combo_total": 119000,
-        "discount_total": 25000,
-        "final_total": 424000,
-        "voucher_code": "MEOBANMOI",
-        "payment_method": "momo",
-        "payment_status": "paid",
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "qr_code_value": "https://meocinema.vn/ticket/MEO-849201",
-        "movie_title": "Dune: Phần Hai",
-        "poster_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
-        "cinema_name": "CGV Landmark 81",
-        "cinema_address": "Tầng B1, TTTM Vincom Center Landmark 81, 720A Điện Biên Phủ, P. 22, Bình Thạnh",
-        "screen_room": "Cinema 1 (IMAX)",
-        "format": "IMAX 2D",
-        "show_date": datetime.date.today().isoformat(),
-        "show_time": "20:30",
-        "combos": ["1x Combo Couple Hẹn Hò (2 Người)"]
-    }
-]
+BOOKINGS_STORE: List[Dict[str, Any]] = []
 
 # Track reserved seats per showtime in memory: { showtime_id: set([seat_codes]) }
 RESERVED_SEATS_MAP: Dict[str, set] = {}

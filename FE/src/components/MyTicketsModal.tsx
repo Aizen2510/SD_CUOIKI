@@ -39,25 +39,21 @@ export const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, currentU
     try {
       let foundTickets: DigitalTicket[] = [];
       const results = await api.getTicketsByPhone(query);
-      if (results && results.length > 0) foundTickets = results.map((ticket) => ({ ...ticket, apiBacked: true }));
+      if (results && results.length > 0) {
+        foundTickets = results.map((ticket) => ({ ...ticket, apiBacked: true }));
+      }
 
-      // 2. Merge with localStorage saved tickets
+      // Backend database là chân lý: Tự động dọn dẹp các vé cũ trong localStorage nếu DB đã reset
       try {
         const localSaved: DigitalTicket[] = JSON.parse(localStorage.getItem('meo_saved_tickets') || '[]');
-        const localMatches = localSaved.filter((t) => t.customerPhone?.trim() === query);
-        localMatches.forEach((lt) => {
-          if (!foundTickets.some((t) => t.bookingId === lt.bookingId)) foundTickets.push(lt);
-        });
+        const updatedLocal = localSaved.filter(
+          (t) => t.customerPhone?.trim() !== query || foundTickets.some((ft) => ft.bookingId === t.bookingId)
+        );
+        localStorage.setItem('meo_saved_tickets', JSON.stringify(updatedLocal));
       } catch (e) {}
 
-      if (foundTickets.length > 0) {
-        setTickets(foundTickets);
-        setErrorMsg('');
-      } else {
-        setTickets([]);
-        // Keep errorMsg empty so clean empty-state UI displays gracefully.
-        setErrorMsg('');
-      }
+      setTickets(foundTickets);
+      setErrorMsg('');
     } catch (err: any) {
       setErrorMsg('Có lỗi xảy ra khi tra cứu vé. Vui lòng thử lại sau.');
     } finally {
@@ -171,6 +167,19 @@ export const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, currentU
               className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
             >
               {isLoading ? 'Đang tải...' : 'Tìm vé'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem('meo_saved_tickets');
+                localStorage.removeItem('meo_reserved_seats_map');
+                setTickets([]);
+                setErrorMsg('');
+              }}
+              title="Dọn sạch vé lưu tạm trên trình duyệt"
+              className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0"
+            >
+              <RotateCcw size={14} /> Dọn sạch
             </button>
           </form>
 
