@@ -10,6 +10,7 @@ import {
 } from '../types/cinema';
 import { COMBOS, PROMOTIONS, generateSeatsForShowtime, isShowtimePast } from '../data/cinemaData';
 import { api } from '../services/api';
+import { addNotification, notificationUserKey } from '../services/notifications';
 
 interface SeatBookingModalProps {
   movie: Movie;
@@ -39,6 +40,17 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
   } | null>(null);
   const [voucherError, setVoucherError] = useState('');
   const [bookingError, setBookingError] = useState('');
+  const [bookingStatus, setBookingStatus] = useState('');
+  const [bookingResultNotice, setBookingResultNotice] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!bookingResultNotice) return;
+    const timeout = setTimeout(() => setBookingResultNotice(null), 6000);
+    return () => clearTimeout(timeout);
+  }, [bookingResultNotice]);
 
   // Check if showtime has already passed
   const isPast = isShowtimePast(date, showtime.time);
@@ -99,7 +111,7 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
 
   // Toggle seat selection
   const handleSeatClick = (seatId: string) => {
-    if (isPast) return;
+    if (isPast || isProcessing) return;
     setSeats((prev) =>
       prev.map((seat) => {
         if (seat.id !== seatId || seat.status === 'reserved') return seat;
@@ -186,10 +198,12 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
     }
     if (selectedSeats.length === 0) return;
     setBookingError('');
+    setBookingResultNotice(null);
+    setBookingStatus('Đang gửi yêu cầu đặt ghế...');
     setIsProcessing(true);
 
     try {
-      const ticket = await api.createBooking({
+      const bookingRequest = {
         showtimeId: showtime.id,
         customerName: customerName.trim() || 'Khách hàng MeoCinema',
         customerPhone: customerPhone.trim() || '0909123456',
@@ -205,7 +219,36 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
         combos: comboQuantities,
         voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
         paymentMethod
-      });
+      };
+      const deadline = Date.now() + 120_000;
+      let ticket: DigitalTicket;
+      let waitingNotificationSent = false;
+      while (true) {
+        try {
+          ticket = await api.createBooking(bookingRequest);
+          break;
+        } catch (err: any) {
+          const canRetry = err.code === 'database_failover' || err.retryable === true;
+          if (!canRetry || Date.now() >= deadline) {
+            if (err.status === 409) {
+              err.message = `Ghế ${selectedSeats.map((s) => s.id).join(', ')} đã được khách khác đặt trong lúc hệ thống chuyển node. Booking của bạn chưa được xác nhận; vui lòng chọn ghế khác.`;
+            }
+            throw err;
+          }
+          setBookingStatus(err.code === 'database_failover'
+            ? 'Database đang chuyển sang node mới. Yêu cầu của bạn đang chờ; vé chưa được xác nhận.'
+            : 'Đang chờ máy chủ database phản hồi. Vé chưa được xác nhận.');
+          if (!waitingNotificationSent) {
+            addNotification(notificationUserKey(currentUser?.email), {
+              kind: 'info',
+              title: 'Yêu cầu đặt vé đang chờ',
+              message: 'Cụm database đang chuyển node. Vé chưa được xác nhận; hệ thống sẽ tự thử lại.'
+            });
+            waitingNotificationSent = true;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
 
       const bookedSeatIds = selectedSeats.map((s) => s.id);
 
@@ -249,11 +292,27 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
       } catch (e) {}
 
       setConfirmedTicket(fullTicket);
+      addNotification(notificationUserKey(currentUser?.email), {
+        kind: 'success',
+        title: 'Đặt vé thành công',
+        message: `Mã vé ${fullTicket.bookingId} đã được lưu thành công.`
+      });
+      setBookingResultNotice({
+        type: 'success',
+        message: `Đặt vé thành công! Mã vé ${fullTicket.bookingId} đã được lưu.`
+      });
     } catch (err: any) {
       console.error('Booking failed:', err);
       const errMsg = err.message || 'Không thể tạo đơn đặt vé. Ghế có thể vừa có khách khác đặt!';
       setBookingError(errMsg);
+      addNotification(notificationUserKey(currentUser?.email), {
+        kind: 'error',
+        title: 'Đặt vé thất bại',
+        message: errMsg
+      });
+      setBookingResultNotice({ type: 'error', message: `Đặt vé thất bại: ${errMsg}` });
     } finally {
+      setBookingStatus('');
       setIsProcessing(false);
     }
   };
@@ -270,6 +329,31 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
+      {bookingResultNotice && (
+        <div
+          role={bookingResultNotice.type === 'success' ? 'status' : 'alert'}
+          aria-live={bookingResultNotice.type === 'success' ? 'polite' : 'assertive'}
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            zIndex: 10000,
+            width: 'min(420px, calc(100vw - 40px))',
+            padding: '14px 18px',
+            borderRadius: '12px',
+            border: `1px solid ${bookingResultNotice.type === 'success' ? '#86efac' : '#fca5a5'}`,
+            background: bookingResultNotice.type === 'success' ? '#f0fdf4' : '#fef2f2',
+            color: bookingResultNotice.type === 'success' ? '#166534' : '#991b1b',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.2)',
+            fontSize: '14px',
+            fontWeight: 700
+          }}
+        >
+          {bookingResultNotice.type === 'success' ? '✓ ' : '⚠ '}
+          {bookingResultNotice.message}
+        </div>
+      )}
       <div
         className="seat-modal-window animate-modal-pop"
         onClick={(e) => e.stopPropagation()}
@@ -661,7 +745,7 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <ShieldCheck size={15} />
-                    <span>Hệ thống phân tán đang khóa giữ ghế tạm thời (Linearizability):</span>
+                    <span>Lựa chọn ghế chưa được giữ. Ghế chỉ được xác nhận sau khi database lưu booking thành công.</span>
                   </div>
                   <span style={{ fontWeight: 800, fontFamily: 'monospace', fontSize: '13px', color: '#dc2626' }}>
                     {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
@@ -727,6 +811,24 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
                 </div>
               )}
 
+              {isProcessing && bookingStatus && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '10px',
+                    color: '#1d4ed8',
+                    fontSize: '12px',
+                    fontWeight: 600
+                  }}
+                >
+                  {bookingStatus}
+                </div>
+              )}
+
               {/* Order summary */}
               <div className="checkout-summary-row">
                 <div className="seats-selected-summary">
@@ -770,7 +872,7 @@ export const SeatBookingModal: React.FC<SeatBookingModalProps> = ({
                 }}
               >
                 {isProcessing ? (
-                  <span>Đang kết nối cổng thanh toán & xuất vé...</span>
+                  <span>Đang chờ database xác nhận...</span>
                 ) : isPast ? (
                   <span>⚠️ Suất chiếu đã qua giờ chiếu (Ngừng nhận đặt vé)</span>
                 ) : (

@@ -1,11 +1,11 @@
 # MeoCinema — Đặt vé và demo hệ thống phân tán
 
-MeoCinema là ứng dụng đặt vé xem phim gồm React/TypeScript (`FE/`), FastAPI (`BE/`), một cụm PostgreSQL 16 ba node và Dozzle để xem log. Dự án minh họa hai vấn đề khác nhau trong hệ thống phân tán:
+MeoCinema là ứng dụng đặt vé xem phim gồm React/TypeScript (`FE/`), FastAPI (`BE/`), một cụm PostgreSQL 16 ba node và Dozzle để xem log. Hai demo trong Distributed Lab bám vào hai chủ đề Chương 7 của *Distributed Systems*, 4th edition:
 
-1. **Consistency (nhất quán):** giữ đúng trạng thái nghiệp vụ khi nhiều request cùng lúc thay đổi dữ liệu. Ví dụ hai khách tranh một ghế thì chỉ một booking được xác nhận; hoàn vé hợp lệ phải trả ghế về trạng thái trống.
-2. **Replication (sao chép):** giữ nhiều bản sao PostgreSQL cập nhật từ cùng một luồng ghi để có thể tiếp tục phục vụ sau khi một node lỗi và để kiểm tra dữ liệu đã truyền tới replica chưa.
+1. **Consistency (nhất quán):** demo read-your-writes cho cùng một client logic: ghi trên Primary, quan sát đọc trực tiếp trên Standby, rồi chỉ xác nhận lần đọc sau khi Standby đã replay tới write LSN.
+2. **Replication (sao chép):** PostgreSQL truyền WAL từ Primary tới Standby; demo đối chiếu event trên từng node và thử failover.
 
-Hai cơ chế bổ sung cho nhau: replication sao chép các thay đổi đã commit, nhưng tự nó không ngăn hai request đặt cùng ghế. Consistency được bảo vệ bằng transaction và ràng buộc duy nhất ở database; replication giúp các node giữ cùng dữ liệu và hỗ trợ chuyển primary khi có lỗi.
+Hai khái niệm liên quan nhưng khác nhau: replication tạo và cập nhật bản sao; consistency mô tả dữ liệu mà client được phép quan sát và các đảm bảo giữa những lần đọc/ghi. Quy tắc nghiệp vụ đặt cùng một ghế vẫn được bảo vệ riêng bằng transaction và ràng buộc duy nhất trong database.
 
 ## Kiến trúc
 
@@ -24,7 +24,7 @@ flowchart LR
     subgraph Compose[Docker Compose]
         API[FastAPI + Uvicorn :5000]
         Routers[API routers<br/>auth · movies · theaters<br/>showtimes · bookings · promotions<br/>DB: multi-host, read-write selection]
-        RepAPI[API replication và benchmark]
+        LabAPI[API consistency và replication demo]
 
         subgraph Cluster[Cụm PostgreSQL 16 — ba data node, WAL từ Primary hiện tại tới hai Standby]
             Node1[pg-node1<br/>Primary hoặc Standby]
@@ -39,13 +39,13 @@ flowchart LR
     User --> UI
     UI -->|HTTP REST / JSON| API
     API --> Routers
-    API --> RepAPI
+    API --> LabAPI
     Routers --> Node1
     Routers --> Node2
     Routers --> Node3
-    RepAPI -->|trạng thái, ghi demo, đối soát| Node1
-    RepAPI --> Node2
-    RepAPI --> Node3
+    LabAPI -->|write, read, kiểm tra LSN| Node1
+    LabAPI --> Node2
+    LabAPI --> Node3
     Monitor -. giám sát và điều phối vai trò .-> Node1
     Monitor -. giám sát và điều phối vai trò .-> Node2
     Monitor -. giám sát và điều phối vai trò .-> Node3
@@ -60,10 +60,20 @@ flowchart LR
 - **Backend:** FastAPI chạy bằng Uvicorn, cung cấp API cho đăng nhập, phim, rạp, suất chiếu, combo, khuyến mãi và booking. Router xử lý nghiệp vụ và truy cập dữ liệu PostgreSQL bằng `psycopg2`.
 - **Cụm dữ liệu:** `pg-node1`, `pg-node2` và `pg-node3` là ba PostgreSQL data node. Tại mỗi thời điểm, một node giữ vai trò primary nhận ghi; hai node còn lại là standby nhận WAL. Vai trò cụ thể có thể đổi sau failover.
 - **Điều phối:** `pg-monitor` chạy `pg_auto_failover`, theo dõi cả ba data node và điều phối promote một standby khi primary gặp sự cố. Backend nhận danh sách cả ba host trong `DATABASE_URL`; `target_session_attrs=read-write` giúp tìm node hiện giữ quyền ghi sau khi vai trò đổi.
-- **Distributed Lab:** giao diện gọi các endpoint demo ở backend để xem trạng thái/LSN node, ghi event, đối soát replication và chạy benchmark đặt vé đồng thời. Các kiểm tra replication này truy cập cụm PostgreSQL thật.
+- **Distributed Lab:** có đúng hai kịch bản: read-your-writes qua Primary/Standby và kiểm tra physical replication/failover. Cả hai truy cập PostgreSQL thật.
 - **Quan sát log:** Dozzle đọc stdout/stderr của các container qua Docker socket ở chế độ chỉ đọc; nó dùng để xem log backend, PostgreSQL và monitor, không phải thành phần lưu dữ liệu nghiệp vụ.
 
 Khi chạy, Docker Compose khởi động backend, monitor, ba data nodes và Dozzle; frontend được khởi chạy riêng bằng npm. Luồng đặt vé đi từ trình duyệt qua API đến PostgreSQL primary. Sau khi transaction được commit, PostgreSQL truyền WAL tới standby. Nếu primary dừng, monitor điều phối đổi vai trò và backend tìm node read-write mới qua cấu hình nhiều host. Các container trong bản demo cùng chạy trên một máy, nên kịch bản minh họa lỗi node/container và failover, không chứng minh khả năng chịu mất cả máy. Nếu monitor dừng, các node PostgreSQL hiện tại vẫn có thể tiếp tục hoạt động và replication, nhưng không có monitor để điều phối failover tự động mới.
+
+### Mô tả kiến trúc để thuyết trình
+
+**Bài nói gợi ý:**
+
+> “MeoCinema có frontend React gửi yêu cầu REST đến backend FastAPI. Backend xử lý nghiệp vụ và ghi dữ liệu vào PostgreSQL Primary. Cụm có ba PostgreSQL node: một Primary nhận ghi và hai Standby nhận WAL rồi replay để cập nhật bản sao. `pg_auto_failover` monitor theo dõi vai trò và điều phối promote Standby nếu Primary lỗi; backend dùng danh sách host để kết nối lại node đang nhận ghi. Distributed Lab có hai demo: một minh họa read-your-writes bằng write LSN và replay LSN, demo còn lại kiểm tra event trên các bản sao và diễn tập failover. Dozzle chỉ giúp xem log. Trong cấu hình trình diễn, các container cùng chạy trên một máy, vì vậy đây là minh họa lỗi node/container, chưa phải kiểm chứng chịu lỗi khi mất máy vật lý.”
+
+**Luồng chính:** `Trình duyệt → React → FastAPI → PostgreSQL Primary → WAL stream → Standby`; `pg-monitor → theo dõi/promote node`; `Dozzle → đọc log container`.
+
+**Phân biệt khi trình bày:** Kịch bản tranh cùng ghế trong ứng dụng kiểm tra một invariant nghiệp vụ bằng unique constraint. Demo consistency của Chương 7 thì ghi trên Primary, đọc trực tiếp trên Standby và dùng write/replay LSN để chỉ xác nhận read-your-writes sau khi bản sao đã phát lại giao dịch.
 
 ### Luồng hoạt động và công dụng các thành phần
 
@@ -72,7 +82,7 @@ Khi chạy, Docker Compose khởi động backend, monitor, ba data nodes và Do
 3. **PostgreSQL Primary và Standby:** Cụm có ba node `pg-node1`, `pg-node2`, `pg-node3`. Tại một thời điểm, một node là Primary để nhận ghi; hai node còn lại là Standby để nhận bản sao dữ liệu. Backend có cấu hình nhiều host và `target_session_attrs=read-write` để kết nối node hiện có quyền ghi.
 4. **WAL streaming replication:** Khi transaction được commit trên Primary, PostgreSQL truyền WAL tới các Standby để cập nhật bản sao. Replication giúp duy trì nhiều bản dữ liệu và cho phép kiểm tra dữ liệu đã tới các node hay chưa.
 5. **pg_auto_failover monitor:** `pg-monitor` theo dõi trạng thái của ba node và điều phối chuyển một Standby thành Primary khi Primary gặp sự cố. Backend dùng lại danh sách host để kết nối tới node đang nhận ghi sau khi vai trò thay đổi.
-6. **Distributed Lab:** Giao diện lab gọi các API demo của backend để xem trạng thái/LSN, ghi event thử nghiệm, đối soát dữ liệu trên từng node và chạy benchmark nhiều yêu cầu đặt cùng ghế. Lab giúp quan sát hoạt động của cụm PostgreSQL thật.
+6. **Distributed Lab:** cung cấp đúng hai demo Chương 7: quan sát read-your-writes giữa Primary/Standby và kiểm tra physical replication/failover. Các API truy vấn trực tiếp cụm PostgreSQL.
 7. **Dozzle:** Dozzle đọc log stdout/stderr của các container để theo dõi backend, PostgreSQL và monitor khi chạy demo hoặc tìm lỗi. Dozzle chỉ phục vụ quan sát, không lưu dữ liệu nghiệp vụ.
 
 Backend, monitor, PostgreSQL và Dozzle được khởi chạy bằng Docker Compose; frontend chạy riêng bằng npm. Trong cấu hình demo, các container nằm trên cùng một máy, nên việc failover mô phỏng sự cố node/container chứ không mô phỏng mất toàn bộ máy chủ.
@@ -86,13 +96,13 @@ Các thao tác đặt/hoàn vé và phần kiểm tra replication đều dùng P
 3. Khi đặt vé, backend tạo booking và các dòng ghế trong cùng transaction. Bảng `booking_seats` có ràng buộc `UNIQUE (showtime_id, seat_code)`. Nếu hai request cùng vượt qua bước kiểm tra ban đầu, PostgreSQL vẫn chỉ cho một request chèn cặp suất chiếu/ghế đó; request còn lại bị lỗi trùng khóa, rollback toàn transaction và trả lỗi ghế vừa được đặt.
 4. Khi hoàn vé, backend khóa booking bằng `SELECT ... FOR UPDATE`, kiểm tra vé còn trả được và phim chưa bắt đầu, rồi trong một transaction xóa các dòng giữ ghế và chuyển trạng thái booking sang `refunded`. Nếu giao dịch lỗi, rollback giữ nguyên trạng thái cũ.
 
-Vì thế **consistency** ở đây có nghĩa là các request đồng thời vẫn tuân theo quy tắc nghiệp vụ trong database: một ghế của một suất chỉ thuộc tối đa một booking đang giữ. Database là trọng tài cuối cùng; kiểm tra phía giao diện hoặc một biến trong bộ nhớ không đủ khi có nhiều request hay nhiều backend process.
+Quy tắc một ghế chỉ có tối đa một booking đang giữ là **invariant nghiệp vụ** được đảm bảo bằng transaction và unique constraint. Đây là vấn đề riêng với consistency models của Chương 7, vốn mô tả thứ tự và khả năng quan sát các lần đọc/ghi trên nhiều bản sao.
 
 ## Vì sao có replication và nó chạy thế nào?
 
 - Chỉ node **primary** nhận ghi. Khi PostgreSQL commit transaction, thay đổi được ghi thành WAL (Write-Ahead Log).
 - Hai node **standby** nhận WAL qua physical streaming replication rồi phát lại WAL lên bản sao dữ liệu của mình. `pg_auto_failover` monitor theo dõi trạng thái các node, còn PostgreSQL thực hiện truyền và phát lại dữ liệu.
-- Cụm đang dùng synchronous replication với `ANY 1`: primary chờ ít nhất một standby xác nhận WAL trước khi xác nhận commit. Điều này giảm nguy cơ mất các transaction đã xác nhận nếu primary gặp lỗi, nhưng có thể tăng độ trễ hoặc làm ghi chờ khi không còn standby đủ điều kiện.
+- Compose đặt `synchronous_commit=remote_write`: commit đợi xác nhận standby đã ghi WAL vào hệ điều hành, nhưng không chờ standby replay để dữ liệu nhìn thấy được qua truy vấn. Vì vậy consistency demo đợi replay LSN riêng trước lần đọc được tính là read-your-writes. Cấu hình không bảo đảm standby đã replay ngay khi commit trả về.
 - Nếu primary dừng, monitor điều phối một standby đủ điều kiện lên primary. Backend kết nối lại qua danh sách ba host và chọn node read-write mới. Trong lúc chuyển vai trò, một số request có thể tạm thất bại.
 - Kịch bản replication ghi một event vào primary rồi đọc event ID trực tiếp từ từng node để quan sát WAL đã được áp dụng chưa. Kịch bản failover dừng một container PostgreSQL thật và xác nhận các node còn lại bầu/promote primary mới.
 
@@ -198,9 +208,6 @@ Hệ thống cung cấp 10 tài khoản khách hàng thử nghiệm được t�
 | Khách thử nghiệm 9 | `khach9@meocinema.test` | `0901000009` | `MeoTest@2026` |
 | Khách thử nghiệm 10 | `khach10@meocinema.test` | `0901000010` | `MeoTest@2026` |
 
-> **Cách chứng minh tài khoản nhận vé trong Kịch bản 3:**
-> Khi chạy kịch bản 3 với 10 clients tranh mua ghế, nếu client nào thắng (ví dụ Khách thử nghiệm 5), bạn chỉ cần mở trình duyệt, đăng nhập đúng tài khoản `khach5@meocinema.test` (mật khẩu `MeoTest@2026`), sau đó vào mục **"Vé của tôi"** để chứng minh vé vừa mua đã được lưu chính xác vào tài khoản của khách hàng đó.
-
 Database hiện đã được reset: 23 phim, 13 suất chiếu, 3 tài khoản, không có booking mẫu hay ghế bị chiếm. Phim dùng poster từ danh sách MoMo của giao diện; trailer placeholder đã bỏ, trailer không có link phù hợp để trống.
 
 ### Cách 1: Reset nhanh — Chỉ xóa dữ liệu vé, GIỮ LẠI CÁC TÀI KHOẢN (Khuyên dùng)
@@ -226,15 +233,18 @@ docker compose exec -T pg-node2 psql -U postgres -d meocinema_db < BE/database.s
 
 Thay `pg-node2` bằng primary hiện tại nếu vai trò đã đổi.
 
-## Kịch bản 1 — Hai khách tranh ghế rồi hoàn vé
+## Kịch bản 1 — Consistency: read-your-writes qua replica
 
-Đây là luồng booking thật trong giao diện chính, không phải simulator:
+Chương 7 trình bày consistency models, trong đó **read-your-writes** yêu cầu một client sau khi ghi phải thấy chính lần ghi đó ở các lần đọc tiếp theo. Đọc từ cùng Primary sau commit thường đã thấy dữ liệu, nhưng điều này không nói gì về độ trễ khi client được chuyển sang một Standby.
 
-1. Mở MeoCinema trên hai cửa sổ hoặc hai trình duyệt và đăng nhập hai tài khoản/số điện thoại.
-2. Chọn cùng phim, cùng suất chiếu và cùng ghế; xác nhận đặt gần như đồng thời.
-3. Một khách nhận booking thành công. Request còn lại bị từ chối vì ghế đã được giữ. Xem log backend và kiểm tra `bookings` cùng `booking_seats`; một ghế chỉ được gắn với một booking.
-4. Vào **Vé của tôi** bằng tài khoản thắng, xem thời gian đặt và chi tiết vé, rồi bấm **Hoàn vé** trước giờ chiếu.
-5. Xác nhận vé chuyển sang **Đã hoàn tiền**, dòng giữ ghế được xóa, ghế xuất hiện lại trên sơ đồ và có thể đặt tiếp. Sau giờ chiếu, backend từ chối hoàn vé.
+1. Mở **Distributed Lab** bằng `Ctrl + Shift + L` và chọn **Kịch bản 1: Consistency đọc-sau-ghi**.
+2. Bấm **Chạy consistency read-after-write**. Backend ghi event vào Primary và ghi lại write LSN sau commit.
+3. Backend đọc trực tiếp trên từng node ngay sau commit. Kết quả có thể đã thấy event hoặc chưa thấy trên Standby; thời điểm chạy và tốc độ replay quyết định điều này.
+4. Với Standby, backend chờ đến khi `pg_last_wal_replay_lsn()` đạt write LSN rồi đọc lại event. Chỉ lần đọc sau điều kiện này được tính là read-your-writes đã thỏa trong lần chạy. Nếu timeout hoặc node lỗi, kết quả báo chưa xác nhận.
+
+Cấu hình cụm dùng `synchronous_commit=remote_write`: commit có thể đợi standby nhận và ghi WAL, nhưng không đợi WAL được replay để truy vấn nhìn thấy dữ liệu. Vì vậy demo kiểm tra vị trí replay riêng, không giả định “đã nhận WAL” đồng nghĩa “đã đọc thấy”.
+
+CLI tương đương: `python3 scripts/demo_consistency.py`.
 
 ## Kịch bản 2 — Replication thật và Tự động Failover khi Node gặp sự cố
 
@@ -324,50 +334,8 @@ docker compose exec pg-monitor pg_autoctl show state --pgdata /var/lib/postgres/
 
 ### Hai kiểu replica khi primary gặp lỗi
 
-- **Ghi đồng bộ (Synchronous Replication):** Primary chỉ xác nhận commit sau khi ít nhất một standby xác nhận đã nhận WAL. Đổi lại độ an toàn dữ liệu tuyệt đối (RPO = 0), tránh mất dữ liệu khi failover.
-- **Đọc từ replica (Read-Your-Writes):** Standby phục vụ truy vấn đọc. Với các nghiệp vụ đặt vé quan trọng, backend MeoCinema đảm bảo tính nhất quán Đọc-sau-Ghi (Read-Your-Writes) để tránh đọc phải dữ liệu trễ (Stale Read).
-
-## Kịch bản 3 — Bão đặt vé đồng thời và nhất quán sao chép trên cụm
-
-Kịch bản này tích hợp và chứng minh đồng thời cả hai thuộc tính sống còn của hệ phân tán: **Transaction Consistency (ACID / Linearizability)** khi có nhiều request tranh chấp cùng lúc và **Replication Consistency (Read-Your-Writes)** trên toàn bộ cụm PostgreSQL.
-
-### Cách thức hoạt động
-
-1. **Transaction Consistency (Nhất quán giao dịch / Chống Double-Booking):**
-   - Hệ thống mô phỏng $N$ khách hàng (5, 10, hoặc 20 clients) cùng lúc bấm xác nhận đặt đúng một ghế VIP (ví dụ `VIP-F8`) tại cùng một microsecond.
-   - Các thread được đồng bộ hóa bằng `Barrier` và gửi đồng thời đến Primary.
-   - Nhờ ràng buộc duy nhất trong PostgreSQL `UNIQUE (showtime_id, seat_code)` và mức cô lập giao dịch, database chỉ cho phép **đúng 1 request commit thành công (200 OK)**.
-   - $N - 1$ requests còn lại ngay lập tức bị lỗi xung đột khóa duy nhất, nhận mã lỗi `409 Conflict` và toàn bộ transaction được rollback an toàn.
-   - Số lượng ghế bán vượt quá (Overbooking) bằng 0 tuyệt đối.
-
-2. **Replication Consistency & Read-Your-Writes (Nhất quán sao chép trên cụm):**
-   - Ngay sau khi transaction thắng cuộc được commit trên Primary, backend truy vấn đối soát tức thời trực tiếp trên tất cả các node trong cụm (`pg-node1`, `pg-node2`, `pg-node3`).
-   - Kiểm tra mã vé và trạng thái ghế `VIP-F8` trên từng node kèm WAL/Replay LSN. Cả 3 node đều phản ánh trạng thái đã giữ ghế và mã vé trùng khớp 100%.
-   - Thử nghiệm đọc sau ghi: Thực hiện truy vấn đọc chi tiết vé trực tiếp từ một **Standby Replica**. Khách hàng nhận được đầy đủ thông tin vé hợp lệ của mình mà không bị mất dữ liệu hay đọc phải bản ghi cũ (Stale Read).
-
-### Cách thực hiện demo
-
-**Cách 1: Trực quan trên Giao diện Web (Distributed Lab Modal)**
-1. Nhấn tổ hợp phím **Ctrl + Shift + L** để mở cửa sổ **Distributed Lab**.
-2. Chọn tab **Kịch bản 3: Tranh ghế & Nhất quán sao chép**.
-3. Chọn số lượng clients đồng thời (5, 10, hoặc 20 requests) và mã ghế thử nghiệm (mặc định `VIP-F8`).
-4. Bấm **Chạy kiểm thử (10 requests)**:
-   - Xem thống kê giao dịch: 1 Thắng (200 OK), 9 Xung đột (409 Conflict).
-   - Xem bảng đối soát 3 node: Cả `pg-node1`, `pg-node2`, `pg-node3` đều báo `ĐỒNG BỘ 100%`.
-   - Xem khối xác nhận **Read-Your-Writes Consistency** đọc từ Standby replica.
-5. Bấm **Dọn dẹp ghế** để giải phóng ghế thử nghiệm và chạy lại kịch bản bao nhiêu lần tùy thích.
-
-**Cách 2: Chạy trực tiếp qua dòng lệnh Terminal (CLI)**
-```bash
-# Chạy với 10 clients mặc định tranh ghế VIP-F8
-python3 scripts/demo_concurrency_replication.py
-
-# Hoặc tùy chỉnh 20 clients tranh ghế VIP-G8
-python3 scripts/demo_concurrency_replication.py --concurrency 20 --seat VIP-G8
-
-# Giải phóng ghế sau khi test
-python3 scripts/demo_concurrency_replication.py --cleanup --seat VIP-G8
-```
+- **Synchronous replication:** cấu hình node đặt `synchronous_commit=remote_write`; commit đợi standby xác nhận đã ghi WAL vào hệ điều hành. Mức này không đợi standby replay WAL cho truy vấn đọc và không phải cam kết RPO=0 trong mọi kiểu sự cố.
+- **Đọc từ replica:** Standby có thể phục vụ truy vấn đọc sau khi replay WAL. Kịch bản 1 so sánh lần đọc tức thời với lần đọc sau khi replay LSN đạt write LSN; read-your-writes được thỏa trong lần đọc sau khi đã chờ điều kiện này.
 
 ## API cho kịch bản replication
 
@@ -376,8 +344,7 @@ python3 scripts/demo_concurrency_replication.py --cleanup --seat VIP-G8
 | Vai trò, trạng thái và LSN của từng PostgreSQL node | `GET /api/distributed/replication/real/status` |
 | Tạo event thật qua primary | `POST /api/distributed/replication/real/demo-write` |
 | Đọc event ID trực tiếp trên mỗi node | `GET /api/distributed/replication/real/verify/{event_id}` |
-| Chạy kịch bản bão request tranh ghế & đối soát replication | `POST /api/distributed/replication/real/benchmark/concurrent-booking` |
-| Dọn dẹp / giải phóng ghế sau khi benchmark | `POST /api/distributed/replication/real/benchmark/cleanup` |
+| Demo read-your-writes: ghi Primary, đọc tức thời và đọc lại sau khi Standby replay tới write LSN | `POST /api/distributed/replication/real/consistency/read-after-write` |
 
 Các log container ở Dozzle/stdout khác với những endpoint log simulator còn lại của backend.
 

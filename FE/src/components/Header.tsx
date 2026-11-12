@@ -1,8 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MapPin, Search, Menu, X, ChevronDown, Sparkles, Ticket, LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import { MapPin, Search, Menu, X, ChevronDown, Sparkles, Ticket, LogIn, LogOut, ShieldCheck, Bell } from 'lucide-react';
 import { City, UserProfile } from '../types/cinema';
 import { CatLogo } from './CatLogo';
 import { ThemeSwitcher, ThemeType } from './ThemeSwitcher';
+import {
+  AppNotification,
+  getNotifications,
+  markNotificationsRead,
+  notificationUserKey,
+  notificationsEventName
+} from '../services/notifications';
 
 interface HeaderProps {
   currentCity: City;
@@ -33,17 +40,39 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const notificationKey = notificationUserKey(currentUser?.email);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserDropdownOpen(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setNotificationsOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const refreshNotifications = () => setNotifications(getNotifications(notificationKey));
+    const handleNotificationEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ userKey?: string }>).detail;
+      if (!detail?.userKey || detail.userKey === notificationKey) refreshNotifications();
+    };
+    refreshNotifications();
+    window.addEventListener(notificationsEventName, handleNotificationEvent);
+    window.addEventListener('storage', refreshNotifications);
+    return () => {
+      window.removeEventListener(notificationsEventName, handleNotificationEvent);
+      window.removeEventListener('storage', refreshNotifications);
+    };
+  }, [notificationKey]);
 
   const navItems = [
     { id: 'lich-chieu', label: 'Lịch chiếu', hasDropdown: true },
@@ -138,6 +167,84 @@ export const Header: React.FC<HeaderProps> = ({
             <Ticket size={16} color="var(--brand-primary)" />
             <span>Vé của tôi</span>
           </button>
+
+          {/* Notification Center */}
+          <div style={{ position: 'relative' }} ref={notificationsRef}>
+            <button
+              type="button"
+              aria-label="Thông báo"
+              aria-expanded={notificationsOpen}
+              title="Thông báo"
+              onClick={() => setNotificationsOpen((open) => !open)}
+              style={{
+                position: 'relative',
+                width: '40px',
+                height: '40px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                border: '1px solid #f9a8d4',
+                color: '#be185d',
+                background: '#fff',
+                boxShadow: '0 2px 8px rgba(190, 24, 93, 0.2)',
+                cursor: 'pointer',
+                flex: '0 0 40px'
+              }}
+            >
+              <Bell size={19} />
+              {notifications.some((item) => !item.read) && (
+                <span style={{
+                  position: 'absolute', top: '-3px', right: '-3px', minWidth: '18px', height: '18px',
+                  padding: '0 4px', borderRadius: '999px', background: '#ef4444', color: '#fff',
+                  fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  {notifications.filter((item) => !item.read).length}
+                </span>
+              )}
+            </button>
+
+            {notificationsOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: 'min(360px, calc(100vw - 24px))',
+                maxHeight: 'min(480px, calc(100vh - 100px))', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                background: '#fff', border: '1px solid #e5e7eb',
+                borderRadius: '14px', boxShadow: '0 16px 40px rgba(0,0,0,0.4)', zIndex: 1200
+              }}>
+                <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
+                  <strong style={{ color: '#111827', fontSize: '14px' }}>Thông báo</strong>
+                  {notifications.some((item) => !item.read) && (
+                    <button
+                      type="button"
+                      onClick={() => setNotifications(markNotificationsRead(notificationKey))}
+                      style={{ border: 0, background: 'transparent', color: '#be185d', cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}
+                    >
+                      Đánh dấu đã đọc
+                    </button>
+                  )}
+                </div>
+                <div style={{ overflowY: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '28px 18px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
+                      Chưa có thông báo
+                    </div>
+                  ) : notifications.map((item) => {
+                    const color = item.kind === 'success' ? '#22c55e' : item.kind === 'error' ? '#ef4444' : '#3b82f6';
+                    return (
+                      <div key={item.id} style={{ padding: '12px 16px', display: 'flex', gap: '10px', background: item.read ? '#fff' : '#fdf2f8', borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ width: '8px', height: '8px', marginTop: '5px', flex: '0 0 8px', borderRadius: '50%', background: color }} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: '#111827', fontSize: '12px', fontWeight: 800 }}>{item.title}</div>
+                          <div style={{ color: '#374151', fontSize: '12px', lineHeight: 1.45, marginTop: '3px', overflowWrap: 'anywhere' }}>{item.message}</div>
+                          <div style={{ color: '#6b7280', fontSize: '10px', marginTop: '5px' }}>{new Date(item.createdAt).toLocaleString('vi-VN')}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* User Auth Section */}
           {currentUser ? (

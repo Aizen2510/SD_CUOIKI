@@ -1,4 +1,102 @@
 {
-  "reserved_seats_map": {},
-  "bookings_store": []
+  "reserved_seats_map": {
+    "25134-1-2026-11-13-3": [
+      "F6",
+      "E5",
+      "D4",
+      "H8",
+      "A1",
+      "B2",
+      "G7",
+      "C3"
+    ],
+    "25134-1-2026-11-16-5": [
+      "D7",
+      "D4",
+      "A1",
+      "A7",
+      "B2",
+      "B7",
+      "B6",
+      "C3",
+      "C5"
+    ]
+  },
+  "bookings_store": [
+    {
+      "id": 1,
+      "booking_code": "MEO-375329",
+      "customer_name": "Khách thử nghiệm 1",
+      "customer_phone": "0901000001",
+      "customer_email": "",
+      "showtime_id": "25134-1-2026-11-13-3",
+      "seat_count": 8,
+      "seat_numbers": [
+        "A1",
+        "B2",
+        "C3",
+        "D4",
+        "E5",
+        "F6",
+        "G7",
+        "H8"
+      ],
+      "seat_total": 815000.0,
+      "combo_total": 0.0,
+      "discount_total": 0.0,
+      "final_total": 815000.0,
+      "voucher_code": "",
+      "payment_method": "momo",
+      "payment_status": "paid",
+      "created_at": "12/11/2026 16:24:12",
+      "qr_code_value": "https://meocinema.vn/ticket/MEO-375329",
+      "movie_title": "Avengers: Hồi Kết - Phiên Bản Đặc Biệt (Chiếu lại)",
+      "poster_url": "https://image-fworker.momocdn.net/momo-external/5ae579829a348a0fa937aa4c198e125efa985ce1c5ff6787e71de813ed451e52?size=M",
+      "cinema_name": "CGV Landmark 81",
+      "cinema_address": "Tầng B1, TTTM Vincom Center Landmark 81, 720A Điện Biên Phủ, P. 22, Bình Thạnh",
+      "screen_room": "Rạp 5 - IMAX",
+      "format": "IMAX 2D",
+      "show_date": "2026-11-13",
+      "show_time": "15:20",
+      "combos": []
+    },
+    {
+      "id": 2,
+      "booking_code": "MEO-541114",
+      "customer_name": "Khách thử nghiệm 1",
+      "customer_phone": "0901000001",
+      "customer_email": "",
+      "showtime_id": "25134-1-2026-11-16-5",
+      "seat_count": 9,
+      "seat_numbers": [
+        "A1",
+        "A7",
+        "B2",
+        "B6",
+        "B7",
+        "C3",
+        "C5",
+        "D4",
+        "D7"
+      ],
+      "seat_total": 795000.0,
+      "combo_total": 0.0,
+      "discount_total": 0.0,
+      "final_total": 795000.0,
+      "voucher_code": "",
+      "payment_method": "momo",
+      "payment_status": "paid",
+      "created_at": "12/11/2026 16:30:44",
+      "qr_code_value": "https://meocinema.vn/ticket/MEO-541114",
+      "movie_title": "Avengers: Hồi Kết - Phiên Bản Đặc Biệt (Chiếu lại)",
+      "poster_url": "https://image-fworker.momocdn.net/momo-external/5ae579829a348a0fa937aa4c198e125efa985ce1c5ff6787e71de813ed451e52?size=M",
+      "cinema_name": "CGV Landmark 81",
+      "cinema_address": "Tầng B1, TTTM Vincom Center Landmark 81, 720A Điện Biên Phủ, P. 22, Bình Thạnh",
+      "screen_room": "Rạp 4 - 2D",
+      "format": "2D Lồng tiếng",
+      "show_date": "2026-11-16",
+      "show_time": "19:15",
+      "combos": []
+    }
+  ]
 }

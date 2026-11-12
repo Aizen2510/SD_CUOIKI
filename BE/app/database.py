@@ -24,7 +24,7 @@ def is_postgres_available() -> bool:
     global _is_pg_connected
     try:
         conn = psycopg2.connect(DATABASE_URL, connect_timeout=2)
-        conn.close()
+        conn.close()    
         _is_pg_connected = True
         return True
     except Exception:

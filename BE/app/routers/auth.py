@@ -75,34 +75,32 @@ def _insert_user(full_name: str, email: str, phone: str, password_hash: str, sal
         "created_at": now_str
     }
 
-    # Save to PostgreSQL if connected
+    # Registration must be durable; never return a token for a memory-only user.
     conn = get_pg_connection()
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO users (email, phone, full_name, password_hash, salt, role, avatar_url, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, email, phone, full_name, role, avatar_url, created_at
-                """, (
-                    new_user["email"],
-                    new_user["phone"],
-                    new_user["full_name"],
-                    new_user["password_hash"],
-                    new_user["salt"],
-                    new_user["role"],
-                    new_user["avatar_url"],
-                    now_str
-                ))
-                inserted = cur.fetchone()
-                conn.commit()
-                if inserted:
-                    new_user["id"] = inserted["id"]
-        except Exception:
-            if conn:
-                conn.rollback()
-        finally:
-            conn.close()
+    if not conn:
+        raise HTTPException(status_code=503, detail="Cụm database đang chuyển node; chưa đăng ký được. Vui lòng thử lại.")
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO users (email, phone, full_name, password_hash, salt, role, avatar_url, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, email, phone, full_name, role, avatar_url, created_at
+            """, (
+                new_user["email"], new_user["phone"], new_user["full_name"],
+                new_user["password_hash"], new_user["salt"], new_user["role"],
+                new_user["avatar_url"], now_str
+            ))
+            inserted = cur.fetchone()
+            conn.commit()
+            if inserted:
+                new_user["id"] = inserted["id"]
+    except Exception as exc:
+        conn.rollback()
+        if getattr(exc, "pgcode", None) == "23505":
+            raise HTTPException(status_code=409, detail="Email hoặc số điện thoại đã được đăng ký.") from exc
+        raise HTTPException(status_code=503, detail="Không thể lưu tài khoản vào database; chưa đăng ký thành công.") from exc
+    finally:
+        conn.close()
 
     IN_MEMORY_USERS.append(new_user)
     return new_user

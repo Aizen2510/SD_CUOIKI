@@ -15,6 +15,17 @@ from app.database import (
 router = APIRouter(prefix="/api/bookings", tags=["Bookings & Tickets"])
 
 
+def _database_failover_http_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={
+            "code": "database_failover",
+            "message": "Cụm database đang chuyển Primary. Booking chưa được xác nhận; hệ thống sẽ thử lại.",
+        },
+        headers={"Retry-After": "2"},
+    )
+
+
 def _ensure_showtime_row(cur, req: BookingCreateRequest, show_date: str, show_time: str) -> None:
     cur.execute("SELECT 1 FROM showtimes WHERE id = %s", (req.showtimeId,))
     if cur.fetchone():
@@ -118,16 +129,9 @@ def _create_booking(req: BookingCreateRequest):
     final_show_date = target_date or datetime.date.today().isoformat()
     final_show_time = target_time or "19:30"
 
-    # 1. Double-booking check
-    reserved_set = RESERVED_SEATS_MAP.get(req.showtimeId, set())
-    for s_code in seat_codes:
-        if s_code in reserved_set:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Ghế {s_code} vừa có khách đặt trước. Vui lòng chọn ghế khác!"
-            )
-
-    # 2. Calculate totals
+    # The database is authoritative for seat ownership. Process memory can be
+    # stale during failover, so never decide a cross-client conflict from it.
+    # Calculate totals only after request validation.
     seat_total = sum(s.price for s in req.seats)
 
     combo_total = 0.0
@@ -168,7 +172,7 @@ def _create_booking(req: BookingCreateRequest):
     if is_postgres_available():
         conn = get_pg_connection()
         if not conn:
-            raise HTTPException(status_code=503, detail="Không kết nối được cơ sở dữ liệu; chưa tạo vé.")
+            raise _database_failover_http_error()
         try:
             conn.autocommit = False
             with conn.cursor() as cur:
@@ -235,14 +239,22 @@ def _create_booking(req: BookingCreateRequest):
             if getattr(e, "pgcode", None) == "23505":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="Một hoặc nhiều ghế vừa được khách khác đặt. Vui lòng chọn ghế khác!"
+                    detail="Một hoặc nhiều ghế đã được khách khác đặt trong lúc hệ thống xử lý yêu cầu. Vui lòng chọn ghế khác!"
                 )
             print(f"[BOOKING PG ERROR]: {e}")
+            pgcode = getattr(e, "pgcode", None)
+            if pgcode is None or pgcode.startswith("08") or pgcode in {"57P01", "57P02", "57P03"}:
+                raise _database_failover_http_error() from e
             raise HTTPException(status_code=503, detail="Không thể lưu vé vào PostgreSQL; chưa tạo vé.")
         finally:
             conn.close()
+    else:
+        # Do not issue a successful in-memory ticket while the real database
+        # cluster is electing/promoting a primary. A local reservation is not
+        # replicated and could allow another customer to buy the same seat.
+        raise _database_failover_http_error()
 
-    # 6. Save in memory repository
+    # Cache the confirmed database booking for local lookups after commit.
     if req.showtimeId not in RESERVED_SEATS_MAP:
         RESERVED_SEATS_MAP[req.showtimeId] = set()
     RESERVED_SEATS_MAP[req.showtimeId].update(seat_codes)

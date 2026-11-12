@@ -286,21 +286,6 @@ export const api = {
   }): Promise<DigitalTicket> {
     const seatCodes = payload.seats.map((s) => s.id);
 
-    // Check local double-booking check first
-    try {
-      const localStoreStr = localStorage.getItem('meo_reserved_seats_map');
-      const localReservedMap = localStoreStr ? JSON.parse(localStoreStr) : {};
-      const reservedList: string[] = localReservedMap[payload.showtimeId] || [];
-      const conflict = seatCodes.find((sId) => reservedList.includes(sId));
-      if (conflict) {
-        throw new Error(`Ghế ${conflict} vừa có khách đặt trước. Vui lòng chọn ghế khác!`);
-      }
-    } catch (err: any) {
-      if (err.message && err.message.toLowerCase().includes('ghế')) {
-        throw err;
-      }
-    }
-
     let receivedApiResponse = false;
     try {
       const res = await fetchWithTimeout(`${API_BASE_URL}/bookings`, {
@@ -322,14 +307,20 @@ export const api = {
 
         return await res.json();
       } else {
-        // Backend returned error (409 Conflict, 400 Bad Request, etc.)
         const errorData = await res.json().catch(() => ({}));
-        const errDetail = errorData.detail || 'Không thể tạo đơn đặt vé do trùng ghế hoặc lỗi hệ thống';
-        throw new Error(errDetail);
+        const detail = errorData.detail;
+        const error: any = new Error(
+          typeof detail === 'string' ? detail : detail?.message || 'Không thể tạo đơn đặt vé.'
+        );
+        error.status = res.status;
+        error.code = detail?.code;
+        throw error;
       }
     } catch (e: any) {
       if (receivedApiResponse) throw e;
-      throw new Error('Không kết nối được máy chủ đặt vé. Vui lòng thử lại; chưa tạo vé.');
+      const error: any = new Error('Không kết nối được máy chủ đặt vé.');
+      error.retryable = true;
+      throw error;
     }
   },
 
@@ -407,32 +398,12 @@ export const api = {
     return data;
   },
 
-  async runConcurrentBenchmark(concurrency: number = 10, seatCode: string = 'VIP-F8', showtimeId?: string): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/replication/real/benchmark/concurrent-booking`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        concurrency,
-        seat_code: seatCode,
-        showtime_id: showtimeId || undefined
-      })
-    }, 20000);
+  async runReadAfterWriteConsistencyDemo(): Promise<any> {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/replication/real/consistency/read-after-write`, {
+      method: 'POST'
+    }, 30000);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || 'Lỗi chạy kiểm thử tranh ghế đồng thời.');
-    return data;
-  },
-
-  async cleanupBenchmarkSeat(seatCode: string = 'VIP-F8', showtimeId?: string): Promise<any> {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/distributed/replication/real/benchmark/cleanup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        seat_code: seatCode,
-        showtime_id: showtimeId || undefined
-      })
-    }, 10000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || 'Lỗi giải phóng ghế thử nghiệm.');
+    if (!res.ok) throw new Error(data.detail || 'Không chạy được demo consistency đọc-sau-ghi.');
     return data;
   },
 
